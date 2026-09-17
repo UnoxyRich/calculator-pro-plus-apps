@@ -4,6 +4,8 @@ __pycache__/
 obj/
 tmp/
 pyhsics-formulas/math-app/build/
+pyhsics-formulas/math-app/bin/*.map
+pyhsics-formulas/math-app/bin/*.obj
 bin/*.map
 bin/*.obj
 bin/ram/
