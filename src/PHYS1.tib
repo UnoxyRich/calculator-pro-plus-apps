@@ -18,11 +18,11 @@ Text(74,38,"FREE FALL")
 Text(97,38,"PROJECTILES")
 TextColor(10)
 If C=1
-Text(51,17,"►")
+Text(51,17,">")
 If C=2
-Text(74,17,"►")
+Text(74,17,">")
 If C=3
-Text(97,17,"►")
+Text(97,17,">")
 TextColor(23)
 Text(139,8,"UP/DOWN SELECT  ENTER OPEN")
 End
@@ -35,8 +35,8 @@ If N≥10 and N≤14
 Text(23,8,"FREE FALL")
 If N≥15
 Text(23,8,"PROJECTILE MOTION")
-Text(141,8,"UP/DOWN PAGE  LEFT MENU")
-Text(154,8,"CLEAR EXIT")
+Text(141,8,"DOWN NEXT  UP PREV")
+Text(154,8,"LEFT MENU  CLEAR EXIT")
 End
 TextColor(10)
 If N=1
@@ -334,13 +334,13 @@ Stop
 End
 If N=0
 Then
-If K=24
+If K=25
 Then
 C-1→C
 If C=0
 3→C
 End
-If K=26
+If K=34
 Then
 C+1→C
 If C=4
@@ -358,15 +358,15 @@ End
 End
 If N>0
 Then
-If K=34
+If K=24
 0→N
-If K=25 or K=26 or K=105
+If K=34 or K=26 or K=105
 Then
 N+1→N
 If N=10 or N=15 or N=23
 0→N
 End
-If K=24
+If K=25
 Then
 N-1→N
 If N=0 or N=9 or N=14
