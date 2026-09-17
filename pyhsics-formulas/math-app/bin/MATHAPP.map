@@ -1,0 +1,869 @@
+
+Merging object attributes
+
+
+Discarded input sections
+
+ .comment       0x00000000      0x14f obj/MATHAPP.o
+ .note.GNU-stack
+                0x00000000        0x0 obj/MATHAPP.o
+ .init.weak_crt
+                0x00000000       0x10 obj/MATHAPP.o
+ .text          0x00000000        0x0 obj/crt0.o
+ .data          0x00000000        0x0 obj/crt0.o
+ .bss           0x00000000        0x0 obj/crt0.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+prgm             0x00d1a87f         0x00400000
+bss              0x00d052c6         0x0000ed12
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+                0x00d1a87f                        LOAD_ADDR = 0xd1a87f
+                0x00d052c6                        BSSHEAP_LOW = 0xd052c6
+                0x00d13fd8                        BSSHEAP_HIGH = 0xd13fd8
+                0x00d1a87e                        STACK_HIGH = 0xd1a87e
+                0x00000001                        __TICE__ = 0x1
+                0x00d1a87f                        . = LOAD_ADDR
+
+.header         0x00d1a87f       0x23
+ *(.header)
+ .header        0x00d1a87f        0x3 obj/crt0.o
+ *(.header.icon)
+ .header.icon   0x00d1a882       0x20 obj/MATHAPP.o
+                0x00d1a887                ___description
+
+.init           0x00d1a8a2       0x79
+ *(.init)
+ .init          0x00d1a8a2       0x79 obj/crt0.o
+                0x00d1a8a2                __start
+                0x00d1a8df                ___exithl
+                0x00d1a8e0                _exit.sp
+
+.text           0x00d1a91b    0x2dc28
+ *(.text.unlikely .text.*_unlikely .text.unlikely.*)
+ *(.text.exit .text.exit.*)
+ *(.text.startup .text.startup.*)
+ *(.text.hot .text.hot.*)
+ *(SORT_BY_NAME(.text.sorted.*))
+ *(.text .stub .text.* .gnu.linkonce.t.*)
+ .text          0x00d1a91b      0x5f7 obj/MATHAPP.o
+                0x00d1a91b                __land
+                0x00d1a91f                __iand
+                0x00d1a936                __dcmp
+                0x00d1a994                __frameset
+                0x00d1a9a2                __frameset0
+                0x00d1a9ad                __ftod
+                0x00d1a9f5                __imulu
+                0x00d1a9f5                __imuls
+                0x00d1aa25                __sshl
+                0x00d1aa25                __ishl
+                0x00d1aa4b                __ishru
+                0x00d1aa50                __ishrs
+                0x00d1aa8c                __lcmps
+                0x00d1aa99                __lcmpu
+                0x00d1aaa1                __lcmpzero
+                0x00d1aaa1                __lequzero
+                0x00d1aaac                __lladd
+                0x00d1aad0                __lland
+                0x00d1ab0c                __llcmps
+                0x00d1ab39                __llcmpu
+                0x00d1ab63                __llcmpzero
+                0x00d1ab63                __llequzero
+                0x00d1ab78                __llrems
+                0x00d1ab7b                __lldivs
+                0x00d1abcb                __lldivu
+                0x00d1abdf                __lldvrmu
+                0x00d1abe6                __lldvrmu.hijack
+                0x00d1ac3d                __llmulu
+                0x00d1ac92                __llneg
+                0x00d1ac93                __llneg.hijack_nc
+                0x00d1acab                __llremu
+                0x00d1acb6                __llshl
+                0x00d1acd0                __llshru
+                0x00d1ad00                __llshrs
+                0x00d1ad3c                __llsub
+                0x00d1ad5e                __llxor
+                0x00d1ad9a                __lor
+                0x00d1ad9e                __ior
+                0x00d1adb5                __sand
+                0x00d1adbe                __setflag
+                0x00d1adc8                __smulu
+                0x00d1adc8                __smuls
+                0x00d1addb                __lxor
+                0x00d1addf                __ixor
+                0x00d1adf6                _os_GetStringInput
+                0x00d1aed4                _isalpha
+                0x00d1aee2                _isspace
+                0x00d1aef1                _memcpy
+ .text._math_fraction
+                0x00d1af12       0x6e obj/MATHAPP.o
+                0x00d1af12                _math_fraction
+ .text._fraction_from_i64
+                0x00d1af80      0x291 obj/MATHAPP.o
+ .text._math_fraction_zero
+                0x00d1b211       0x25 obj/MATHAPP.o
+                0x00d1b211                _math_fraction_zero
+ .text._math_fraction_one
+                0x00d1b236       0x26 obj/MATHAPP.o
+                0x00d1b236                _math_fraction_one
+ .text._math_fraction_to_text
+                0x00d1b25c       0x9a obj/MATHAPP.o
+                0x00d1b25c                _math_fraction_to_text
+ .text._math_fraction_parse
+                0x00d1b2f6      0x196 obj/MATHAPP.o
+                0x00d1b2f6                _math_fraction_parse
+ .text._parse_integer_segment
+                0x00d1b48c      0x203 obj/MATHAPP.o
+ .text._math_parse_expression
+                0x00d1b68f       0xf2 obj/MATHAPP.o
+                0x00d1b68f                _math_parse_expression
+ .text._parser_parse_add
+                0x00d1b781       0x91 obj/MATHAPP.o
+ .text._parser_skip_spaces
+                0x00d1b812       0x33 obj/MATHAPP.o
+ .text._parser_error
+                0x00d1b845       0x39 obj/MATHAPP.o
+ .text._parser_parse_multiply
+                0x00d1b87e       0xc8 obj/MATHAPP.o
+ .text._parser_make_binary
+                0x00d1b946       0xb7 obj/MATHAPP.o
+ .text._parser_parse_unary
+                0x00d1b9fd      0x753 obj/MATHAPP.o
+ .text._is_identifier_character
+                0x00d1c150       0x32 obj/MATHAPP.o
+ .text._parser_make_unary
+                0x00d1c182       0xb6 obj/MATHAPP.o
+ .text._math_parse_equation
+                0x00d1c238      0x292 obj/MATHAPP.o
+                0x00d1c238                _math_parse_equation
+ .text._math_parse_piecewise
+                0x00d1c4ca      0xc75 obj/MATHAPP.o
+                0x00d1c4ca                _math_parse_piecewise
+ .text._trim_span
+                0x00d1d13f       0x80 obj/MATHAPP.o
+ .text._find_top_level_character
+                0x00d1d1bf       0x5e obj/MATHAPP.o
+ .text._math_expression_to_text
+                0x00d1d21d       0x9b obj/MATHAPP.o
+                0x00d1d21d                _math_expression_to_text
+ .text._format_expression_node
+                0x00d1d2b8      0x3a9 obj/MATHAPP.o
+ .text._append_text
+                0x00d1d661       0x97 obj/MATHAPP.o
+ .text._math_expression_to_polynomial
+                0x00d1d6f8       0x8b obj/MATHAPP.o
+                0x00d1d6f8                _math_expression_to_polynomial
+ .text._polynomial_from_node
+                0x00d1d783      0x727 obj/MATHAPP.o
+ .text._poly_zero
+                0x00d1deaa       0x5f obj/MATHAPP.o
+ .text._poly_scale
+                0x00d1df09      0x1a6 obj/MATHAPP.o
+ .text._poly_add
+                0x00d1e0af      0x21a obj/MATHAPP.o
+ .text._poly_subtract
+                0x00d1e2c9      0x21d obj/MATHAPP.o
+ .text._poly_multiply
+                0x00d1e4e6      0x351 obj/MATHAPP.o
+ .text._poly_trim
+                0x00d1e837       0x6c obj/MATHAPP.o
+ .text._math_solve_equation
+                0x00d1e8a3     0xf219 obj/MATHAPP.o
+                0x00d1e8a3                _math_solve_equation
+ .text._expression_constant_value
+                0x00d2dabc      0x216 obj/MATHAPP.o
+ .text._step_add
+                0x00d2dcd2       0x53 obj/MATHAPP.o
+ .text._candidate_satisfies_radical
+                0x00d2dd25      0x338 obj/MATHAPP.o
+ .text._fraction_is_perfect_square
+                0x00d2e05d       0xf2 obj/MATHAPP.o
+ .text._format_candidate_pair
+                0x00d2e14f      0x424 obj/MATHAPP.o
+ .text._polynomial_evaluate_fraction
+                0x00d2e573      0x2b1 obj/MATHAPP.o
+ .text._rational_from_node
+                0x00d2e824      0x7a8 obj/MATHAPP.o
+ .text._candidate_allowed
+                0x00d2efcc       0xa2 obj/MATHAPP.o
+ .text._format_square_root
+                0x00d2f06e      0x355 obj/MATHAPP.o
+ .text._integer_square_root
+                0x00d2f3c3      0x239 obj/MATHAPP.o
+ .text._math_analyze_function
+                0x00d2f5fc     0x880d obj/MATHAPP.o
+                0x00d2f5fc                _math_analyze_function
+ .text._fraction_negate
+                0x00d37e09       0x79 obj/MATHAPP.o
+ .text._poly_equal
+                0x00d37e82       0xed obj/MATHAPP.o
+ .text._find_node_type
+                0x00d37f6f       0xa7 obj/MATHAPP.o
+ .text._math_analyze_piecewise
+                0x00d38016     0x43c2 obj/MATHAPP.o
+                0x00d38016                _math_analyze_piecewise
+ .text._format_piece_interval
+                0x00d3c3d8      0x140 obj/MATHAPP.o
+ .text._append_union_text
+                0x00d3c518       0x4b obj/MATHAPP.o
+ .text._range_point_add
+                0x00d3c563      0x11a obj/MATHAPP.o
+ .text._append_behavior_interval
+                0x00d3c67d      0x246 obj/MATHAPP.o
+ .text._math_transform_quadratic
+                0x00d3c8c3     0x8e1d obj/MATHAPP.o
+                0x00d3c8c3                _math_transform_quadratic
+ .text._format_absolute_fraction
+                0x00d456e0      0x10d obj/MATHAPP.o
+ .text._main    0x00d457ed     0x103b obj/MATHAPP.o
+                0x00d457ed                _main
+ .text._read_expression
+                0x00d46828       0x2e obj/MATHAPP.o
+ .text._show_parse_error
+                0x00d46856       0x54 obj/MATHAPP.o
+ .text._print_label_value
+                0x00d468aa       0x4f obj/MATHAPP.o
+ .text._show_steps
+                0x00d468f9       0xbc obj/MATHAPP.o
+ .text._show_analysis
+                0x00d469b5       0xf0 obj/MATHAPP.o
+ .text._read_fraction
+                0x00d46aa5       0x48 obj/MATHAPP.o
+ .text._print_wrapped
+                0x00d46aed       0x8f obj/MATHAPP.o
+ .text._npf_vpprintf
+                0x00d46b7c     0x1775 obj/MATHAPP.o
+                0x00d46b7c                _npf_vpprintf
+ .text._NPF_PUTC_IMPL
+                0x00d482f1       0x2d obj/MATHAPP.o
+ .text._npf_utoa_rev
+                0x00d4831e       0xe6 obj/MATHAPP.o
+ .text._vsnprintf
+                0x00d48404       0x88 obj/MATHAPP.o
+                0x00d48404                _vsnprintf
+ .text._npf_bufputc
+                0x00d4848c       0x25 obj/MATHAPP.o
+ .text._npf_bufputc_nop
+                0x00d484b1        0x7 obj/MATHAPP.o
+ .text._snprintf
+                0x00d484b8       0x28 obj/MATHAPP.o
+                0x00d484b8                _snprintf
+ .text.__bctlz  0x00d484e0       0x22 obj/MATHAPP.o
+                0x00d484e0                __bctlz
+ .text.__sctlz  0x00d48502        0xc obj/MATHAPP.o
+                0x00d48502                __sctlz
+ .text.__ictlz  0x00d4850e       0x12 obj/MATHAPP.o
+                0x00d4850e                __ictlz
+ .text.__llctlz
+                0x00d48520        0xe obj/MATHAPP.o
+                0x00d48520                __llctlz
+ .text.__i48ctlz
+                0x00d4852e       0x15 obj/MATHAPP.o
+                0x00d4852e                __i48ctlz
+ *(.gnu.warning)
+
+.rodata         0x00d48543     0x181c
+ *(.rodata .rodata.* .gnu.linkonce.r.*)
+ .rodata._format_expression_node
+                0x00d48543       0x1e obj/MATHAPP.o
+ .rodata._polynomial_from_node
+                0x00d48561       0x18 obj/MATHAPP.o
+ .rodata._rational_from_node
+                0x00d48579       0x18 obj/MATHAPP.o
+ .rodata._main  0x00d48591        0xc obj/MATHAPP.o
+ .rodata._.str  0x00d4859d        0x8 obj/MATHAPP.o
+ .rodata._.str.1
+                0x00d485a5        0xc obj/MATHAPP.o
+ .rodata._.str.2
+                0x00d485b1       0x2b obj/MATHAPP.o
+ .rodata._.str.3
+                0x00d485dc       0x1f obj/MATHAPP.o
+ .rodata._.str.4
+                0x00d485fb       0x14 obj/MATHAPP.o
+ .rodata._.str.5
+                0x00d4860f       0x22 obj/MATHAPP.o
+ .rodata._.str.6
+                0x00d48631        0xb obj/MATHAPP.o
+ .rodata._.str.7
+                0x00d4863c       0x2e obj/MATHAPP.o
+ .rodata._.str.8
+                0x00d4866a       0x2b obj/MATHAPP.o
+ .rodata._.str.9
+                0x00d48695       0x2c obj/MATHAPP.o
+ .rodata._.str.10
+                0x00d486c1       0x1e obj/MATHAPP.o
+ .rodata._.str.11
+                0x00d486df       0x2e obj/MATHAPP.o
+ .rodata._.str.12
+                0x00d4870d       0x2a obj/MATHAPP.o
+ .rodata._.str.13
+                0x00d48737       0x1b obj/MATHAPP.o
+ .rodata._.str.14
+                0x00d48752       0x24 obj/MATHAPP.o
+ .rodata._.str.15
+                0x00d48776        0xf obj/MATHAPP.o
+ .rodata._.str.16
+                0x00d48785       0x1a obj/MATHAPP.o
+ .rodata._.str.17
+                0x00d4879f       0x4b obj/MATHAPP.o
+ .rodata._.str.18
+                0x00d487ea       0x42 obj/MATHAPP.o
+ .rodata._.str.19
+                0x00d4882c        0x3 obj/MATHAPP.o
+ .rodata._.str.20
+                0x00d4882f        0xa obj/MATHAPP.o
+ .rodata._.str.21
+                0x00d48839        0x7 obj/MATHAPP.o
+ .rodata._.str.22
+                0x00d48840        0x9 obj/MATHAPP.o
+ .rodata._.str.23
+                0x00d48849       0x26 obj/MATHAPP.o
+ .rodata._.str.24
+                0x00d4886f       0x3e obj/MATHAPP.o
+ .rodata._.str.25
+                0x00d488ad       0x3e obj/MATHAPP.o
+ .rodata._.str.26
+                0x00d488eb        0xf obj/MATHAPP.o
+ .rodata._.str.27
+                0x00d488fa       0x11 obj/MATHAPP.o
+ .rodata._.str.28
+                0x00d4890b       0x30 obj/MATHAPP.o
+ .rodata._.str.29
+                0x00d4893b       0x14 obj/MATHAPP.o
+ .rodata._.str.30
+                0x00d4894f        0xd obj/MATHAPP.o
+ .rodata._.str.31
+                0x00d4895c       0x27 obj/MATHAPP.o
+ .rodata._.str.32
+                0x00d48983       0x11 obj/MATHAPP.o
+ .rodata._.str.33
+                0x00d48994       0x2e obj/MATHAPP.o
+ .rodata._.str.34
+                0x00d489c2        0x5 obj/MATHAPP.o
+ .rodata._.str.35
+                0x00d489c7       0x14 obj/MATHAPP.o
+ .rodata._.str.36
+                0x00d489db       0x31 obj/MATHAPP.o
+ .rodata._.str.37
+                0x00d48a0c       0x1b obj/MATHAPP.o
+ .rodata._.str.38
+                0x00d48a27       0x12 obj/MATHAPP.o
+ .rodata._.str.39
+                0x00d48a39       0x1d obj/MATHAPP.o
+ .rodata._.str.40
+                0x00d48a56       0x3c obj/MATHAPP.o
+ .rodata._.str.41
+                0x00d48a92       0x43 obj/MATHAPP.o
+ .rodata._.str.42
+                0x00d48ad5       0x24 obj/MATHAPP.o
+ .rodata._.str.43
+                0x00d48af9       0x37 obj/MATHAPP.o
+ .rodata._.str.44
+                0x00d48b30       0x14 obj/MATHAPP.o
+ .rodata._.str.45
+                0x00d48b44        0x5 obj/MATHAPP.o
+ .rodata._.str.46
+                0x00d48b49       0x15 obj/MATHAPP.o
+ .rodata._.str.47
+                0x00d48b5e       0x1f obj/MATHAPP.o
+ .rodata._.str.48
+                0x00d48b7d        0xf obj/MATHAPP.o
+ .rodata._.str.49
+                0x00d48b8c       0x2e obj/MATHAPP.o
+ .rodata._.str.50
+                0x00d48bba        0xe obj/MATHAPP.o
+ .rodata._.str.51
+                0x00d48bc8        0xf obj/MATHAPP.o
+ .rodata._.str.52
+                0x00d48bd7        0xd obj/MATHAPP.o
+ .rodata._.str.53
+                0x00d48be4       0x33 obj/MATHAPP.o
+ .rodata._.str.54
+                0x00d48c17       0x36 obj/MATHAPP.o
+ .rodata._.str.55
+                0x00d48c4d        0x5 obj/MATHAPP.o
+ .rodata._.str.56
+                0x00d48c52       0x3d obj/MATHAPP.o
+ .rodata._.str.57
+                0x00d48c8f       0x3a obj/MATHAPP.o
+ .rodata._.str.58
+                0x00d48cc9       0x2e obj/MATHAPP.o
+ .rodata._.str.59
+                0x00d48cf7       0x2b obj/MATHAPP.o
+ .rodata._.str.60
+                0x00d48d22       0x4a obj/MATHAPP.o
+ .rodata._.str.61
+                0x00d48d6c       0x47 obj/MATHAPP.o
+ .rodata._.str.62
+                0x00d48db3        0xe obj/MATHAPP.o
+ .rodata._.str.63
+                0x00d48dc1        0xf obj/MATHAPP.o
+ .rodata._.str.64
+                0x00d48dd0        0x5 obj/MATHAPP.o
+ .rodata._.str.65
+                0x00d48dd5       0x38 obj/MATHAPP.o
+ .rodata._.str.66
+                0x00d48e0d       0x26 obj/MATHAPP.o
+ .rodata._.str.67
+                0x00d48e33       0x47 obj/MATHAPP.o
+ .rodata._.str.68
+                0x00d48e7a       0x22 obj/MATHAPP.o
+ .rodata._.str.69
+                0x00d48e9c        0xc obj/MATHAPP.o
+ .rodata._.str.70
+                0x00d48ea8       0x30 obj/MATHAPP.o
+ .rodata._.str.71
+                0x00d48ed8       0x30 obj/MATHAPP.o
+ .rodata._.str.72
+                0x00d48f08       0x3f obj/MATHAPP.o
+ .rodata._.str.73
+                0x00d48f47       0x3f obj/MATHAPP.o
+ .rodata._.str.74
+                0x00d48f86       0x40 obj/MATHAPP.o
+ .rodata._.str.75
+                0x00d48fc6       0x44 obj/MATHAPP.o
+ .rodata._.str.76
+                0x00d4900a       0x1f obj/MATHAPP.o
+ .rodata._.str.77
+                0x00d49029        0x8 obj/MATHAPP.o
+ .rodata._.str.78
+                0x00d49031        0x7 obj/MATHAPP.o
+ .rodata._.str.79
+                0x00d49038       0x15 obj/MATHAPP.o
+ .rodata._.str.80
+                0x00d4904d        0x7 obj/MATHAPP.o
+ .rodata._.str.81
+                0x00d49054        0xe obj/MATHAPP.o
+ .rodata._.str.82
+                0x00d49062       0x2a obj/MATHAPP.o
+ .rodata._.str.83
+                0x00d4908c       0x17 obj/MATHAPP.o
+ .rodata._.str.84
+                0x00d490a3       0x37 obj/MATHAPP.o
+ .rodata._.str.85
+                0x00d490da       0x16 obj/MATHAPP.o
+ .rodata._.str.86
+                0x00d490f0       0x2f obj/MATHAPP.o
+ .rodata._.str.87
+                0x00d4911f       0x18 obj/MATHAPP.o
+ .rodata._.str.88
+                0x00d49137       0x1c obj/MATHAPP.o
+ .rodata._.str.89
+                0x00d49153       0x28 obj/MATHAPP.o
+ .rodata._.str.90
+                0x00d4917b       0x1c obj/MATHAPP.o
+ .rodata._.str.91
+                0x00d49197       0x22 obj/MATHAPP.o
+ .rodata._.str.92
+                0x00d491b9        0x2 obj/MATHAPP.o
+ .rodata._.str.94
+                0x00d491bb        0x5 obj/MATHAPP.o
+ .rodata._.str.95
+                0x00d491c0        0x4 obj/MATHAPP.o
+ .rodata._.str.96
+                0x00d491c4       0x1b obj/MATHAPP.o
+ .rodata._.str.97
+                0x00d491df       0x25 obj/MATHAPP.o
+ .rodata._.str.98
+                0x00d49204       0x22 obj/MATHAPP.o
+ .rodata._.str.99
+                0x00d49226       0x12 obj/MATHAPP.o
+ .rodata._.str.100
+                0x00d49238       0x1e obj/MATHAPP.o
+ .rodata._.str.101
+                0x00d49256        0x2 obj/MATHAPP.o
+ .rodata._.str.102
+                0x00d49258        0x2 obj/MATHAPP.o
+ .rodata._.str.103
+                0x00d4925a        0x6 obj/MATHAPP.o
+ .rodata._.str.104
+                0x00d49260        0x2 obj/MATHAPP.o
+ .rodata._.str.105
+                0x00d49262        0x5 obj/MATHAPP.o
+ .rodata._.str.106
+                0x00d49267        0x4 obj/MATHAPP.o
+ .rodata._.str.107
+                0x00d4926b        0x2 obj/MATHAPP.o
+ .rodata._.str.108
+                0x00d4926d        0x2 obj/MATHAPP.o
+ .rodata._.str.109
+                0x00d4926f        0x2 obj/MATHAPP.o
+ .rodata._.str.110
+                0x00d49271       0x10 obj/MATHAPP.o
+ .rodata._.str.111
+                0x00d49281       0x1c obj/MATHAPP.o
+ .rodata._.str.112
+                0x00d4929d       0x29 obj/MATHAPP.o
+ .rodata._.str.113
+                0x00d492c6       0x28 obj/MATHAPP.o
+ .rodata._.str.114
+                0x00d492ee       0x3b obj/MATHAPP.o
+ .rodata._.str.115
+                0x00d49329       0x24 obj/MATHAPP.o
+ .rodata._.str.116
+                0x00d4934d       0x27 obj/MATHAPP.o
+ .rodata._.str.117
+                0x00d49374       0x32 obj/MATHAPP.o
+ .rodata._.str.118
+                0x00d493a6       0x30 obj/MATHAPP.o
+ .rodata._.str.119
+                0x00d493d6       0x35 obj/MATHAPP.o
+ .rodata._.str.120
+                0x00d4940b       0x42 obj/MATHAPP.o
+ .rodata._.str.121
+                0x00d4944d        0xd obj/MATHAPP.o
+ .rodata._.str.122
+                0x00d4945a       0x28 obj/MATHAPP.o
+ .rodata._.str.123
+                0x00d49482       0x2c obj/MATHAPP.o
+ .rodata._.str.124
+                0x00d494ae        0xf obj/MATHAPP.o
+ .rodata._.str.125
+                0x00d494bd        0x8 obj/MATHAPP.o
+ .rodata._.str.126
+                0x00d494c5       0x46 obj/MATHAPP.o
+ .rodata._.str.127
+                0x00d4950b       0x1c obj/MATHAPP.o
+ .rodata._.str.128
+                0x00d49527       0x25 obj/MATHAPP.o
+ .rodata._.str.129
+                0x00d4954c       0x13 obj/MATHAPP.o
+ .rodata._.str.130
+                0x00d4955f       0x27 obj/MATHAPP.o
+ .rodata._.str.131
+                0x00d49586       0x15 obj/MATHAPP.o
+ .rodata._.str.132
+                0x00d4959b       0x26 obj/MATHAPP.o
+ .rodata._.str.133
+                0x00d495c1       0x1a obj/MATHAPP.o
+ .rodata._.str.134
+                0x00d495db       0x31 obj/MATHAPP.o
+ .rodata._.str.135
+                0x00d4960c       0x12 obj/MATHAPP.o
+ .rodata._.str.136
+                0x00d4961e       0x2e obj/MATHAPP.o
+ .rodata._.str.137
+                0x00d4964c       0x20 obj/MATHAPP.o
+ .rodata._.str.138
+                0x00d4966c       0x37 obj/MATHAPP.o
+ .rodata._.str.139
+                0x00d496a3       0x1d obj/MATHAPP.o
+ .rodata._.str.140
+                0x00d496c0        0xa obj/MATHAPP.o
+ .rodata._.str.141
+                0x00d496ca        0xd obj/MATHAPP.o
+ .rodata._.str.142
+                0x00d496d7        0xa obj/MATHAPP.o
+ .rodata._.str.143
+                0x00d496e1        0xc obj/MATHAPP.o
+ .rodata._.str.144
+                0x00d496ed       0x11 obj/MATHAPP.o
+ .rodata._.str.145
+                0x00d496fe       0x25 obj/MATHAPP.o
+ .rodata._.str.146
+                0x00d49723       0x29 obj/MATHAPP.o
+ .rodata._.str.147
+                0x00d4974c       0x22 obj/MATHAPP.o
+ .rodata._.str.148
+                0x00d4976e       0x22 obj/MATHAPP.o
+ .rodata._.str.149
+                0x00d49790        0x4 obj/MATHAPP.o
+ .rodata._.str.150
+                0x00d49794        0x8 obj/MATHAPP.o
+ .rodata._.str.151
+                0x00d4979c        0xa obj/MATHAPP.o
+ .rodata._.str.152
+                0x00d497a6        0x6 obj/MATHAPP.o
+ .rodata._.str.153
+                0x00d497ac       0x19 obj/MATHAPP.o
+ .rodata._.str.154
+                0x00d497c5       0x18 obj/MATHAPP.o
+ .rodata._.str.155
+                0x00d497dd       0x12 obj/MATHAPP.o
+ .rodata._.str.156
+                0x00d497ef        0xa obj/MATHAPP.o
+ .rodata._.str.157
+                0x00d497f9        0x4 obj/MATHAPP.o
+ .rodata._.str.158
+                0x00d497fd        0x5 obj/MATHAPP.o
+ .rodata._.str.159
+                0x00d49802        0x2 obj/MATHAPP.o
+ .rodata._.str.160
+                0x00d49804        0xe obj/MATHAPP.o
+ .rodata._.str.161
+                0x00d49812        0xf obj/MATHAPP.o
+ .rodata._.str.162
+                0x00d49821        0x1 obj/MATHAPP.o
+ .rodata._switch.table.format_expression_node
+                0x00d49822       0x18 obj/MATHAPP.o
+ .rodata._.str.93
+                0x00d4983a        0x8 obj/MATHAPP.o
+ .rodata._.str.1.94
+                0x00d49842       0x15 obj/MATHAPP.o
+ .rodata._.str.2.95
+                0x00d49857        0x3 obj/MATHAPP.o
+ .rodata._.str.3.96
+                0x00d4985a        0x3 obj/MATHAPP.o
+ .rodata._menu_items
+                0x00d4985d        0xf obj/MATHAPP.o
+ .rodata._.str.4.97
+                0x00d4986c       0x1b obj/MATHAPP.o
+ .rodata._.str.5.138
+                0x00d49887        0xf obj/MATHAPP.o
+ .rodata._.str.6.139
+                0x00d49896       0x11 obj/MATHAPP.o
+ .rodata._.str.7.140
+                0x00d498a7       0x14 obj/MATHAPP.o
+ .rodata._.str.8.141
+                0x00d498bb       0x12 obj/MATHAPP.o
+ .rodata._.str.9.142
+                0x00d498cd        0x6 obj/MATHAPP.o
+ .rodata._.str.10.98
+                0x00d498d3        0xb obj/MATHAPP.o
+ .rodata._.str.11.99
+                0x00d498de       0x31 obj/MATHAPP.o
+ .rodata._.str.12.136
+                0x00d4990f        0xc obj/MATHAPP.o
+ .rodata._.str.13.137
+                0x00d4991b       0x1f obj/MATHAPP.o
+ .rodata._.str.14.125
+                0x00d4993a        0xe obj/MATHAPP.o
+ .rodata._.str.15.100
+                0x00d49948       0x10 obj/MATHAPP.o
+ .rodata._.str.16.101
+                0x00d49958        0x9 obj/MATHAPP.o
+ .rodata._.str.17.102
+                0x00d49961        0x9 obj/MATHAPP.o
+ .rodata._.str.18.103
+                0x00d4996a        0x7 obj/MATHAPP.o
+ .rodata._.str.19.104
+                0x00d49971       0x1a obj/MATHAPP.o
+ .rodata._.str.20.135
+                0x00d4998b        0x5 obj/MATHAPP.o
+ .rodata._.str.21.134
+                0x00d49990        0x6 obj/MATHAPP.o
+ .rodata._.str.22.105
+                0x00d49996        0x6 obj/MATHAPP.o
+ .rodata._.str.23.106
+                0x00d4999c       0x24 obj/MATHAPP.o
+ .rodata._.str.24.126
+                0x00d499c0        0x9 obj/MATHAPP.o
+ .rodata._.str.25.127
+                0x00d499c9        0x9 obj/MATHAPP.o
+ .rodata._.str.26.128
+                0x00d499d2        0x8 obj/MATHAPP.o
+ .rodata._.str.27.129
+                0x00d499da        0x9 obj/MATHAPP.o
+ .rodata._.str.28.130
+                0x00d499e3        0xd obj/MATHAPP.o
+ .rodata._.str.29.131
+                0x00d499f0        0xd obj/MATHAPP.o
+ .rodata._.str.30.132
+                0x00d499fd        0xd obj/MATHAPP.o
+ .rodata._.str.31.133
+                0x00d49a0a        0xf obj/MATHAPP.o
+ .rodata._.str.32.107
+                0x00d49a19        0xc obj/MATHAPP.o
+ .rodata._.str.33.108
+                0x00d49a25       0x14 obj/MATHAPP.o
+ .rodata._.str.34.109
+                0x00d49a39       0x12 obj/MATHAPP.o
+ .rodata._.str.35.110
+                0x00d49a4b       0x14 obj/MATHAPP.o
+ .rodata._.str.36.111
+                0x00d49a5f       0x12 obj/MATHAPP.o
+ .rodata._.str.37.112
+                0x00d49a71       0x2b obj/MATHAPP.o
+ .rodata._.str.38.113
+                0x00d49a9c       0x11 obj/MATHAPP.o
+ .rodata._.str.39.114
+                0x00d49aad        0x6 obj/MATHAPP.o
+ .rodata._.str.40.115
+                0x00d49ab3        0x9 obj/MATHAPP.o
+ .rodata._.str.41.116
+                0x00d49abc        0x8 obj/MATHAPP.o
+ .rodata._.str.42.117
+                0x00d49ac4        0x8 obj/MATHAPP.o
+ .rodata._.str.43.118
+                0x00d49acc       0x2c obj/MATHAPP.o
+ .rodata._.str.44.119
+                0x00d49af8        0x8 obj/MATHAPP.o
+ .rodata._.str.45.120
+                0x00d49b00       0x2e obj/MATHAPP.o
+ .rodata._.str.46.121
+                0x00d49b2e       0x1a obj/MATHAPP.o
+ .rodata._.str.47.122
+                0x00d49b48       0x50 obj/MATHAPP.o
+ .rodata._.str.48.123
+                0x00d49b98       0x5a obj/MATHAPP.o
+ .rodata._.str.49.124
+                0x00d49bf2       0x6b obj/MATHAPP.o
+ .rodata._npf_vpprintf
+                0x00d49c5d      0x102 obj/MATHAPP.o
+
+.init_array     0x00d49d5f        0x0
+                [!provide]                        PROVIDE (__init_array_start = .)
+ *(.preinit_array)
+ *(SORT_BY_INIT_PRIORITY(.init_array.*))
+ *(.init_array)
+                [!provide]                        PROVIDE (__init_array_end = .)
+
+.fini_array     0x00d49d5f        0x0
+                [!provide]                        PROVIDE (__fini_array_start = .)
+ *(SORT_BY_INIT_PRIORITY(.fini_array.*))
+ *(.fini_array)
+                [!provide]                        PROVIDE (__fini_array_end = .)
+                0x00d49d5f                        ___data_low = .
+
+.data           0x00d49d5f        0x0
+ *(.data .data.* .gnu.linkonce.d.*)
+ *(.data1)
+                0x00d49d5f                        ___runprgm_reloc_start = .
+ *(.runprgm.reloc)
+                0x00d49d5f                        ___runprgm_reloc_end = .
+                0x00d49d5f                        ___data_high = .
+                0x00000000                        ___data_len = (___data_high - ___data_low)
+                0x00d052c6                        . = BSSHEAP_LOW
+                0x00d052c6                        ___bss_low = .
+
+.bss            0x00d052c6        0x9
+ *(.dynbss)
+ *(.bss .bss.* .gnu.linkonce.b.*)
+ .bss._pc_cnt.0
+                0x00d052c6        0x3 obj/MATHAPP.o
+ .bss._pc_cnt.1
+                0x00d052c9        0x3 obj/MATHAPP.o
+ .bss._pc_cnt.2
+                0x00d052cc        0x3 obj/MATHAPP.o
+ *(COMMON)
+                0x00d052cf                        ___bss_high = .
+                0x00000009                        ___bss_len = (___bss_high - ___bss_low)
+                0x00000001                        ASSERT ((. <= BSSHEAP_HIGH), Error: BSS exceed BSSHEAP_HIGH limit)
+                0x00d052cf                        ___heap_low = .
+                0x00d13fd8                        . = BSSHEAP_HIGH
+                0x00d13fd8                        ___heap_high = .
+
+.runprgm
+ *(.runprgm.reloc)
+
+.debug_info
+ *(.debug_info .debug_info.*)
+
+.debug_abbrev
+ *(.debug_abbrev .debug_abbrev.*)
+
+.debug_line
+ *(.debug_line .debug_line.*)
+
+.debug_line_str
+ *(.debug_line_str .debug_line_str.*)
+
+.debug_str
+ *(.debug_str .debug_str.*)
+
+.debug_str_offsets
+ *(.debug_str_offsets .debug_str_offsets.*)
+
+.debug_addr
+ *(.debug_addr .debug_addr.*)
+
+.debug_aranges
+ *(.debug_aranges .debug_aranges.*)
+
+.debug_ranges
+ *(.debug_ranges .debug_ranges.*)
+
+.debug_rnglists
+ *(.debug_rnglists .debug_rnglists.*)
+
+.debug_loc
+ *(.debug_loc .debug_loc.*)
+
+.debug_loclists
+ *(.debug_loclists .debug_loclists.*)
+
+.debug_frame
+ *(.debug_frame .debug_frame.*)
+
+.debug_macro
+ *(.debug_macro .debug_macro.*)
+
+.debug_macinfo
+ *(.debug_macinfo .debug_macinfo.*)
+
+.debug_names
+ *(.debug_names .debug_names.*)
+
+.debug_pubnames
+ *(.debug_pubnames .debug_pubnames.*)
+
+.debug_pubtypes
+ *(.debug_pubtypes .debug_pubtypes.*)
+
+.debug_types
+ *(.debug_types .debug_types.*)
+
+.debug_sup
+ *(.debug_sup .debug_sup.*)
+
+.debug_cu_index
+ *(.debug_cu_index .debug_cu_index.*)
+
+.debug_tu_index
+ *(.debug_tu_index .debug_tu_index.*)
+
+.gdb_index
+ *(.gdb_index)
+
+.debug_gdb_scripts
+ *(.debug_gdb_scripts)
+
+.debug_abbrev.dwo
+ *(.debug_abbrev.dwo .debug_abbrev.dwo.*)
+
+.debug_info.dwo
+ *(.debug_info.dwo .debug_info.dwo.*)
+
+.debug_line.dwo
+ *(.debug_line.dwo .debug_line.dwo.*)
+
+.debug_loclists.dwo
+ *(.debug_loclists.dwo .debug_loclists.dwo.*)
+
+.debug_macro.dwo
+ *(.debug_macro.dwo .debug_macro.dwo.*)
+
+.debug_rnglists.dwo
+ *(.debug_rnglists.dwo .debug_rnglists.dwo.*)
+
+.debug_str.dwo
+ *(.debug_str.dwo .debug_str.dwo.*)
+
+.debug_str_offsets.dwo
+ *(.debug_str_offsets.dwo .debug_str_offsets.dwo.*)
+
+.eh_frame
+ *(.eh_frame)
+
+.eh_frame_hdr
+ *(.eh_frame_hdr)
+
+/DISCARD/
+ *(.comment)
+ *(.note*)
+                [!provide]                        PROVIDE (___runprgm_reloc_len = (___runprgm_reloc_end - ___runprgm_reloc_start))
+LOAD obj/MATHAPP.o
+LOAD obj/crt0.o
+START GROUP
+LOAD /private/var/folders/hz/khm8rffn6zz424tl3j6_lbd40000gn/T/tmp.EHyZrlLP4p/CEdev/lib/libc/allocator_standard.a
+LOAD /private/var/folders/hz/khm8rffn6zz424tl3j6_lbd40000gn/T/tmp.EHyZrlLP4p/CEdev/lib/crt/libcrt.a
+LOAD /private/var/folders/hz/khm8rffn6zz424tl3j6_lbd40000gn/T/tmp.EHyZrlLP4p/CEdev/lib/ce/libce.a
+LOAD /private/var/folders/hz/khm8rffn6zz424tl3j6_lbd40000gn/T/tmp.EHyZrlLP4p/CEdev/lib/softfloat/libsoftfloat.a
+LOAD /private/var/folders/hz/khm8rffn6zz424tl3j6_lbd40000gn/T/tmp.EHyZrlLP4p/CEdev/lib/libc/libc_os.a
+LOAD /private/var/folders/hz/khm8rffn6zz424tl3j6_lbd40000gn/T/tmp.EHyZrlLP4p/CEdev/lib/libcxx/libcxx.a
+END GROUP
+OUTPUT(bin/MATHAPP.obj elf32-z80)

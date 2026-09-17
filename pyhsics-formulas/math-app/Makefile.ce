@@ -1,0 +1,5 @@
+NAME = MATHAPP
+DESCRIPTION = "Exact symbolic math solver"
+COMPRESSED = YES
+CFLAGS = -Wall -Wextra -Oz -Iinclude
+include $(shell cedev-config --makefile)

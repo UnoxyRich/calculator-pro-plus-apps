@@ -3,6 +3,7 @@ __pycache__/
 .venv/
 obj/
 tmp/
+pyhsics-formulas/math-app/build/
 bin/*.map
 bin/*.obj
 bin/ram/
