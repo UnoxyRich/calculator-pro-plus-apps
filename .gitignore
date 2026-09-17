@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+obj/
+tmp/
+bin/*.map
+bin/*.obj
+bin/ram/
+bin/plain/
+tools/ti_install
+tools/ti_dump_rom
+tools/ti_screen
+tools/ti_verify
+tools/ti_launch
+tools/make_launcher

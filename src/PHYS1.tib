@@ -1,0 +1,376 @@
+Full
+AxesOff
+GridOff
+BackgroundOff
+0→N
+1→C
+Lbl A
+ClrDraw
+TextColor(17)
+Text(5,8,"PHYSICS FORMULAS")
+TextColor(10)
+If N=0
+Then
+Text(27,16,"SELECT A TOPIC")
+TextColor(12)
+Text(51,38,"KINEMATICS")
+Text(74,38,"FREE FALL")
+Text(97,38,"PROJECTILES")
+TextColor(10)
+If C=1
+Text(51,17,"►")
+If C=2
+Text(74,17,"►")
+If C=3
+Text(97,17,"►")
+TextColor(23)
+Text(139,8,"UP/DOWN SELECT  ENTER OPEN")
+End
+If N>0
+Then
+TextColor(23)
+If N≤9
+Text(23,8,"KINEMATICS")
+If N≥10 and N≤14
+Text(23,8,"FREE FALL")
+If N≥15
+Text(23,8,"PROJECTILE MOTION")
+Text(141,8,"UP/DOWN PAGE  LEFT MENU")
+Text(154,8,"CLEAR EXIT")
+End
+TextColor(10)
+If N=1
+Then
+Text(38,8,"AVERAGE SPEED")
+TextColor(12)
+Text(61,30,"SPEED =")
+Text(53,92,"DISTANCE")
+For(X,90,149)
+Pxl-On(68,X,17)
+End
+Text(72,105,"TIME")
+Text(109,8,"Total path length over elapsed time")
+End
+If N=2
+Then
+Text(38,8,"AVERAGE VELOCITY")
+TextColor(12)
+Text(61,35,"v =")
+Text(53,88,"Δx")
+For(X,84,111)
+Pxl-On(68,X,17)
+End
+Text(72,88,"Δt")
+Text(109,8,"Signed change of position / time")
+End
+If N=3
+Then
+Text(38,8,"AVERAGE ACCELERATION")
+TextColor(12)
+Text(61,35,"a =")
+Text(53,88,"Δv")
+For(X,84,111)
+Pxl-On(68,X,17)
+End
+Text(72,88,"Δt")
+Text(109,8,"Signed change of velocity / time")
+End
+If N=4
+Then
+Text(38,8,"GRAPH MEANING")
+TextColor(12)
+Text(58,16,"x-t SLOPE = v")
+Text(77,16,"v-t SLOPE = a")
+Text(96,16,"v-t AREA = Δx")
+Text(119,8,"Area below axis is negative")
+End
+If N=5
+Then
+Text(38,8,"KINEMATIC I")
+TextColor(12)
+Text(62,45,"v = v")
+Text(68,96,"0")
+Text(62,109,"+ at")
+Text(111,8,"Constant acceleration")
+End
+If N=6
+Then
+Text(38,8,"KINEMATIC II")
+TextColor(12)
+Text(62,15,"Δx = v")
+Text(68,67,"0")
+Text(62,80,"t +")
+Text(53,118,"1")
+For(X,113,132)
+Pxl-On(68,X,17)
+End
+Text(72,118,"2")
+Text(62,141,"at")
+Text(54,159,"2")
+Text(111,8,"Displacement in time t")
+End
+If N=7
+Then
+Text(38,8,"KINEMATIC III")
+TextColor(12)
+Text(62,20,"v")
+Text(54,30,"2")
+Text(62,44,"= v")
+Text(68,69,"0")
+Text(54,78,"2")
+Text(62,94,"+ 2aΔx")
+Text(111,8,"Useful when time is unknown")
+End
+If N=8
+Then
+Text(38,8,"MEAN VELOCITY")
+TextColor(12)
+Text(62,20,"Δx =")
+Text(53,68,"(v + v")
+Text(60,111,"0")
+Text(53,124,")t")
+For(X,65,150)
+Pxl-On(68,X,17)
+End
+Text(72,103,"2")
+Text(111,8,"Only for constant acceleration")
+End
+If N=9
+Then
+Text(38,8,"SOLVE FOR TIME")
+TextColor(12)
+Text(62,28,"t =")
+Text(53,75,"v - v")
+Text(60,117,"0")
+For(X,73,128)
+Pxl-On(68,X,17)
+End
+Text(72,97,"a")
+Text(111,8,"From v = v0 + at")
+End
+If N=10
+Then
+Text(38,8,"GRAVITY")
+TextColor(12)
+Text(62,23,"g = 9.8 m/s")
+Text(54,116,"2")
+Text(93,23,"UP POSITIVE: a = -g")
+Text(119,8,"Choose an axis before using signs")
+End
+If N=11
+Then
+Text(38,8,"DROP FROM REST")
+TextColor(12)
+Text(62,20,"Δx = -")
+Text(53,75,"1")
+For(X,71,90)
+Pxl-On(68,X,17)
+End
+Text(72,75,"2")
+Text(62,98,"gt")
+Text(54,115,"2")
+Text(111,8,"v0 = 0; upward is positive")
+End
+If N=12
+Then
+Text(38,8,"MAXIMUM HEIGHT")
+TextColor(12)
+Text(62,20,"Δx =")
+Text(53,80,"v")
+Text(60,90,"0")
+Text(45,100,"2")
+For(X,76,119)
+Pxl-On(68,X,17)
+End
+Text(72,89,"2g")
+Text(111,8,"At the top, v = 0")
+End
+If N=13
+Then
+Text(38,8,"TIME TO TOP")
+TextColor(12)
+Text(62,28,"t =")
+Text(53,79,"v")
+Text(60,89,"0")
+For(X,76,101)
+Pxl-On(68,X,17)
+End
+Text(72,85,"g")
+Text(111,8,"Initial upward speed / g")
+End
+If N=14
+Then
+Text(38,8,"RETURN TO GROUND")
+TextColor(12)
+Text(62,28,"t =")
+Text(53,75,"2v")
+Text(60,99,"0")
+For(X,72,111)
+Pxl-On(68,X,17)
+End
+Text(72,85,"g")
+Text(91,28,"v = -v")
+Text(97,70,"0")
+Text(111,8,"Same launch and landing height")
+End
+If N=15
+Then
+Text(38,8,"HORIZONTAL VELOCITY")
+TextColor(12)
+Text(62,18,"v")
+Text(68,28,"x0")
+Text(62,52,"= v")
+Text(68,79,"0")
+Text(62,90,"cos(θ)")
+Text(91,18,"v")
+Text(97,28,"x")
+Text(91,50,"= v")
+Text(97,76,"x0")
+Text(111,8,"No horizontal acceleration")
+End
+If N=16
+Then
+Text(38,8,"VERTICAL VELOCITY")
+TextColor(12)
+Text(62,18,"v")
+Text(68,28,"y0")
+Text(62,52,"= v")
+Text(68,79,"0")
+Text(62,90,"sin(θ)")
+Text(111,8,"Vertical acceleration = -g")
+End
+If N=17
+Then
+Text(38,8,"PROJECTILE HEIGHT")
+TextColor(12)
+Text(62,20,"Δy =")
+Text(53,80,"v")
+Text(60,90,"y0")
+Text(45,111,"2")
+For(X,76,130)
+Pxl-On(68,X,17)
+End
+Text(72,94,"2g")
+Text(111,8,"At the top, vy = 0")
+End
+If N=18
+Then
+Text(38,8,"TIME TO TOP")
+TextColor(12)
+Text(62,28,"t =")
+Text(53,79,"v")
+Text(60,89,"y0")
+For(X,76,111)
+Pxl-On(68,X,17)
+End
+Text(72,90,"g")
+Text(111,8,"Use the initial vertical speed")
+End
+If N=19
+Then
+Text(38,8,"RETURN FLIGHT TIME")
+TextColor(12)
+Text(62,28,"t =")
+Text(53,75,"2v")
+Text(60,99,"y0")
+For(X,72,120)
+Pxl-On(68,X,17)
+End
+Text(72,91,"g")
+Text(91,23,"v")
+Text(97,33,"y")
+Text(91,53,"= -v")
+Text(97,88,"y0")
+Text(111,8,"Same launch and landing height")
+End
+If N=20
+Then
+Text(38,8,"VERTICAL MOTION")
+TextColor(12)
+Text(62,18,"v")
+Text(68,28,"y")
+Text(62,50,"= v")
+Text(68,77,"y0")
+Text(62,102,"- gt")
+Text(111,8,"At any time t")
+End
+If N=21
+Then
+Text(38,8,"SPEED FROM PARTS")
+TextColor(12)
+Text(62,17,"v = √(v")
+Text(69,72,"x")
+Text(54,83,"2")
+Text(62,94,"+ v")
+Text(69,119,"y")
+Text(54,129,"2")
+Text(62,143,")")
+Text(111,8,"Combine horizontal and vertical")
+End
+If N=22
+Then
+Text(38,8,"VERTICAL DISPLACEMENT")
+TextColor(12)
+Text(62,10,"Δy = v")
+Text(68,61,"y0")
+Text(62,81,"t -")
+Text(53,112,"1")
+For(X,108,127)
+Pxl-On(68,X,17)
+End
+Text(72,112,"2")
+Text(62,136,"gt")
+Text(54,153,"2")
+Text(111,8,"For time, keep positive root")
+End
+0→K
+Repeat K≠0
+getKey→K
+End
+If K=45
+Then
+ClrHome
+Stop
+End
+If N=0
+Then
+If K=24
+Then
+C-1→C
+If C=0
+3→C
+End
+If K=26
+Then
+C+1→C
+If C=4
+1→C
+End
+If K=105
+Then
+If C=1
+1→N
+If C=2
+10→N
+If C=3
+15→N
+End
+End
+If N>0
+Then
+If K=34
+0→N
+If K=25 or K=26 or K=105
+Then
+N+1→N
+If N=10 or N=15 or N=23
+0→N
+End
+If K=24
+Then
+N-1→N
+If N=0 or N=9 or N=14
+0→N
+End
+End
+Goto A
