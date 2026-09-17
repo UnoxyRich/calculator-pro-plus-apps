@@ -24,13 +24,17 @@ saved file decodes back to the exact source.
 
 ## Device compatibility and verification
 
-The connected calculator reported TI-84 Plus CE OS 5.8.0. TI removed direct
-assembly launching in OS 5.6, which is why the earlier `Asm(` wrapper failed.
-This build uses TI-BASIC instructions supported by the CE OS. The previous
-`PHYS1L` launcher was removed from the connected calculator, and an earlier
-revision of `PHYS1` was installed as a type 5 TI-BASIC program over USB. The
-latest build includes additional formula details and needs a final transfer.
+The connected calculator previously reported TI-84 Plus CE OS 5.8.0. TI
+removed direct assembly launching in OS 5.6, which is why the earlier `Asm(`
+wrapper failed. This build is a TI-BASIC program, but its launch and navigation
+have **not** been verified on the calculator. The latest build has **not** been
+transferred.
 
-The USB transfer interface reported success, but its remote execute call did
-not show a changed screen. Launch and navigation on the calculator still need
-to be verified before claiming that the app works.
+An attempted USB deletion of the previous `PHYS1L` launcher timed out, and the
+user reported a calculator crash and RAM reset immediately afterward. Earlier
+USB delete calls had returned success without actually removing the variable.
+Do not interpret a transfer/delete return code as proof of device state. No
+further calculator communication or installation should be attempted without
+the owner's explicit direction after reviewing the reset and possible data loss.
+Only the two prior project program variables were backed up on the computer;
+this was not a full RAM backup.
