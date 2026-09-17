@@ -26,10 +26,15 @@ saved file decodes back to the exact source.
 
 The connected calculator reported TI-84 Plus CE OS 5.8.0. TI removed direct
 assembly launching in OS 5.6, which is why the earlier `Asm(` wrapper failed.
-This build is a TI-BASIC program. The latest `PHYS1.8xp` was transferred over
-USB using the send-only command-line helper. A file read back from the device
-matched the built program data exactly. The program was **not executed** on the
-calculator, so its launch and navigation have not been verified at runtime.
+This build is a TI-BASIC program. The initial build reached the topic menu,
+but opening a formula page produced `ERR:DOMAIN`. TI's Full-mode `Text(` limit
+is row 148; the page footer had used row 154. The footer has been corrected,
+other labels shortened, and the builder now rejects drawing calls outside
+the Full-mode coordinate limits. The corrected `PHYS1.8xp` was transferred
+over USB after backing up the previous copy. A file read back from the device
+matched the corrected program data exactly. The corrected program was **not
+executed** on the calculator, so its runtime behavior still needs a manual
+check by the owner.
 
 An attempted USB deletion of the previous `PHYS1L` launcher timed out, and the
 user reported a calculator crash and RAM reset immediately afterward. Earlier
@@ -40,7 +45,8 @@ further deletion, program execution, or physical keypress was attempted. Only
 the two prior project program variables were backed up on the computer; this
 was not a full RAM backup.
 
-`tools/TiConnectSend.java` only sends PHYS1 when absent, or confirms an exact
-existing copy. It refuses to overwrite a different PHYS1, and cannot delete,
-execute, or press calculator keys. It requires the TI Connect CE Java runtime
-and JAR; it does not launch the TI Connect CE graphical interface.
+`tools/TiConnectSend.java` sends only PHYS1. Its `send` mode refuses to
+overwrite a different program; its explicit `replace` mode backs up PHYS1
+before overwriting it and verifies the transfer by reading it back. It cannot
+delete, execute, or press calculator keys. It requires the TI Connect CE Java
+runtime and JAR; it does not launch the TI Connect CE graphical interface.

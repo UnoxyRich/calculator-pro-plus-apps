@@ -35,8 +35,7 @@ If N≥10 and N≤14
 Text(23,8,"FREE FALL")
 If N≥15
 Text(23,8,"PROJECTILE MOTION")
-Text(141,8,"DOWN NEXT  UP PREV")
-Text(154,8,"LEFT MENU  CLEAR EXIT")
+Text(141,8,"DOWN NEXT UP BACK LEFT MENU")
 End
 TextColor(10)
 If N=1
@@ -49,7 +48,7 @@ For(X,90,149)
 Pxl-On(68,X,17)
 End
 Text(72,105,"TIME")
-Text(109,8,"Total path length over elapsed time")
+Text(109,8,"Distance / total time")
 End
 If N=2
 Then
@@ -61,7 +60,7 @@ For(X,84,111)
 Pxl-On(68,X,17)
 End
 Text(72,88,"Δt")
-Text(109,8,"Signed change of position / time")
+Text(109,8,"Displacement / time")
 End
 If N=3
 Then
@@ -73,7 +72,7 @@ For(X,84,111)
 Pxl-On(68,X,17)
 End
 Text(72,88,"Δt")
-Text(109,8,"Signed change of velocity / time")
+Text(109,8,"Velocity change / time")
 End
 If N=4
 Then
@@ -133,7 +132,7 @@ For(X,65,150)
 Pxl-On(68,X,17)
 End
 Text(72,103,"2")
-Text(111,8,"Only for constant acceleration")
+Text(111,8,"Constant acceleration")
 End
 If N=9
 Then
@@ -155,7 +154,7 @@ TextColor(12)
 Text(62,23,"g = 9.8 m/s")
 Text(54,116,"2")
 Text(93,23,"UP POSITIVE: a = -g")
-Text(119,8,"Choose an axis before using signs")
+Text(119,8,"Choose positive direction")
 End
 If N=11
 Then
@@ -211,7 +210,7 @@ End
 Text(72,85,"g")
 Text(91,28,"v = -v")
 Text(97,70,"0")
-Text(111,8,"Same launch and landing height")
+Text(111,8,"Same start/end height")
 End
 If N=15
 Then
@@ -264,7 +263,7 @@ For(X,76,111)
 Pxl-On(68,X,17)
 End
 Text(72,90,"g")
-Text(111,8,"Use the initial vertical speed")
+Text(111,8,"Use initial y speed")
 End
 If N=19
 Then
@@ -281,7 +280,7 @@ Text(91,23,"v")
 Text(97,33,"y")
 Text(91,53,"= -v")
 Text(97,88,"y0")
-Text(111,8,"Same launch and landing height")
+Text(111,8,"Same start/end height")
 End
 If N=20
 Then
@@ -305,7 +304,7 @@ Text(62,94,"+ v")
 Text(69,119,"y")
 Text(54,129,"2")
 Text(62,143,")")
-Text(111,8,"Combine horizontal and vertical")
+Text(111,8,"Combine x and y speeds")
 End
 If N=22
 Then

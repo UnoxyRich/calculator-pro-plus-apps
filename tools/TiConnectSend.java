@@ -52,15 +52,16 @@ public final class TiConnectSend {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 2) {
-            System.err.println("usage: TiConnectSend PHYS1.8xp output-directory");
+        if (args.length != 3 || !("send".equals(args[0])
+                || "replace".equals(args[0]))) {
+            System.err.println("usage: TiConnectSend send|replace PHYS1.8xp output-directory");
             System.exit(2);
         }
-        File input = new File(args[0]).getAbsoluteFile();
+        File input = new File(args[1]).getAbsoluteFile();
         if (!input.isFile() || !input.getName().equals("PHYS1.8xp")) {
             fail("Only an existing PHYS1.8xp file is accepted");
         }
-        Path outputDir = Path.of(args[1]).toAbsolutePath();
+        Path outputDir = Path.of(args[2]).toAbsolutePath();
         Files.createDirectories(outputDir);
         Path logDir = outputDir.resolve("ti-connect-logs");
         Files.createDirectories(logDir);
@@ -107,7 +108,13 @@ public final class TiConnectSend {
                     System.out.println("ALREADY_INSTALLED: exact program data matches.");
                     return;
                 }
-                fail("Different PHYS1 already exists. Refusing an unverified overwrite.");
+                if (!"replace".equals(args[0])) {
+                    fail("Different PHYS1 already exists. Use replace after reviewing backup.");
+                }
+                if (existing.isVarFlagArchive()) {
+                    fail("Existing PHYS1 is archived; refusing to change flash memory.");
+                }
+                System.out.println("Replacing only PHYS1; backup completed first.");
             }
 
             System.out.println("Sending PHYS1 (" + expected.getData().length + " data bytes).");
