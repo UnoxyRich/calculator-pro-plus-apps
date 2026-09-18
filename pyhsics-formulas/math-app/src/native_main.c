@@ -182,8 +182,22 @@ static void show_solution(const MathSolveResult *solution) {
 }
 
 static int read_expression(const char *prompt, char *buffer, size_t capacity) {
+    char normalized[MATH_OUTPUT_WIDTH];
+
+    if (capacity > sizeof(normalized)) {
+        return 0;
+    }
     buffer[0] = '\0';
     os_GetStringInput(prompt, buffer, capacity - 1);
+    if (!math_normalize_input(buffer, normalized, sizeof(normalized))) {
+        buffer[0] = '\0';
+        return 0;
+    }
+    if (strlen(normalized) >= capacity) {
+        buffer[0] = '\0';
+        return 0;
+    }
+    memcpy(buffer, normalized, strlen(normalized) + 1);
     return buffer[0] != '\0';
 }
 

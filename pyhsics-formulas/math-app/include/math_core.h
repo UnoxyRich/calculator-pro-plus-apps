@@ -167,6 +167,7 @@ int math_fraction_parse(const char *text, size_t length, MathFraction *out);
 
 MathStatus math_parse_expression(const char *input, MathExpr *out,
                                  char *error, size_t error_capacity);
+int math_normalize_input(const char *input, char *out, size_t capacity);
 MathStatus math_parse_equation(const char *input, MathEquation *out,
                                char *error, size_t error_capacity);
 MathStatus math_parse_piecewise(const char *input, MathPiecewise *out,

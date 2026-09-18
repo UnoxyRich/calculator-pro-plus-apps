@@ -554,6 +554,61 @@ static int parser_can_start_primary(char character) {
         || character == '(' || is_identifier_character(character);
 }
 
+/* os_GetStringInput returns the TI-ASCII display form of calculator keys.
+ * These codes are characters, not the token values in ti/tokens.h; for
+ * example, 0x10 is the displayed square-root glyph and 0xD7 is italic i. */
+int math_normalize_input(const char *input, char *out, size_t capacity) {
+    size_t input_index = 0;
+    size_t output_index = 0;
+
+    if (input == NULL || out == NULL || capacity == 0) {
+        return 0;
+    }
+    while (input[input_index] != '\0') {
+        const char *replacement = NULL;
+        unsigned char character = (unsigned char) input[input_index++];
+        switch (character) {
+        case 0x10: /* square-root glyph */
+            replacement = "sqrt";
+            break;
+        case 0x11: /* reciprocal glyph */
+            replacement = "^-1";
+            break;
+        case 0x12: /* square glyph */
+            replacement = "^2";
+            break;
+        case 0x0E: /* cube glyph */
+            replacement = "^3";
+            break;
+        case 0x1A: /* TI negation glyph */
+            replacement = "-";
+            break;
+        case 0xD7: /* TI italic imaginary-unit glyph */
+            replacement = "i";
+            break;
+        default:
+            break;
+        }
+        if (replacement != NULL) {
+            size_t length = strlen(replacement);
+            if (output_index + length + 1 > capacity) {
+                out[0] = '\0';
+                return 0;
+            }
+            memcpy(out + output_index, replacement, length);
+            output_index += length;
+        } else {
+            if (output_index + 2 > capacity) {
+                out[0] = '\0';
+                return 0;
+            }
+            out[output_index++] = (char) character;
+        }
+    }
+    out[output_index] = '\0';
+    return 1;
+}
+
 static int parser_parse_multiply(MathParser *parser) {
     int left = parser_parse_unary(parser);
     if (left < 0) {

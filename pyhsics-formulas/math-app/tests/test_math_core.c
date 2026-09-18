@@ -53,6 +53,30 @@ static void test_fractions_and_parser(void) {
     assert(strcmp(decimal_text, "1/8") == 0);
 }
 
+static void test_calculator_key_text_normalization(void) {
+    char calculator_text[] = {
+        'x', (char) 0x12, '+', (char) 0xD7, '2', '\0'
+    };
+    char radical_text[] = {
+        (char) 0x10, '(', (char) 0x1A, '4', ')', '\0'
+    };
+    char normalized[64];
+    char error[MATH_ERROR_WIDTH];
+    MathExpr expression;
+
+    assert(math_normalize_input(calculator_text, normalized,
+                                sizeof(normalized)));
+    assert(strcmp(normalized, "x^2+i2") == 0);
+    assert(math_parse_expression(normalized, &expression, error,
+                                sizeof(error)) == MATH_OK);
+    assert(math_normalize_input(radical_text, normalized,
+                                sizeof(normalized)));
+    assert(strcmp(normalized, "sqrt(-4)") == 0);
+    assert(math_parse_expression(normalized, &expression, error,
+                                sizeof(error)) == MATH_OK);
+    assert(!math_normalize_input(radical_text, normalized, 4));
+}
+
 static void test_automatic_input_classification(void) {
     assert(math_classify_input("x^2+1") == MATH_INPUT_FUNCTION);
     assert(math_classify_input("  x^2+1=5  ") == MATH_INPUT_EQUATION);
@@ -595,6 +619,7 @@ static void test_error_paths(void) {
 
 int main(void) {
     test_fractions_and_parser();
+    test_calculator_key_text_normalization();
     test_automatic_input_classification();
     test_function_composition();
     test_rational_square_analysis();

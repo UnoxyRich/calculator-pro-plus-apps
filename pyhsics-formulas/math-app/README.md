@@ -59,8 +59,10 @@ make ce
 The CE Toolchain produces `bin/MATHAPP.8xp`; if the program exceeds one CE
 AppVar, it also produces `bin/MATHAPP.8xp.*.8xv` sidecar files. Transfer the
 launcher and every generated sidecar together. The native front end uses the
-TI OS string-input and keypad routines, while `src/math_core.c` is shared with
-the host test executable.
+TI OS string-input and keypad routines. Its input adapter converts TI-ASCII
+keypad glyphs such as square root, square, reciprocal, negation, and italic
+`i` into the parser's readable form before solving. `src/math_core.c` is
+shared with the host test executable.
 
 ## CEmu emulator test
 
