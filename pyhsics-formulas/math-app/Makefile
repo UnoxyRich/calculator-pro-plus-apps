@@ -27,8 +27,8 @@ test-native-ui: build/native_ui_tests
 	./build/native_ui_tests
 
 test-static:
-	clang --analyze -std=c99 -Iinclude src/math_core.c
-	clang --analyze -std=c99 -DMATHAPP_HOST_TEST -Iinclude -Itests -Dmain=mathapp_native_main src/native_main.c
+	clang --analyze -std=c99 -Xanalyzer -analyzer-output=text -Iinclude src/math_core.c
+	clang --analyze -std=c99 -Xanalyzer -analyzer-output=text -DMATHAPP_HOST_TEST -Iinclude -Itests -Dmain=mathapp_native_main src/native_main.c
 
 build/math_core_tests: src/math_core.c tests/test_math_core.c include/math_core.h
 	@mkdir -p build
