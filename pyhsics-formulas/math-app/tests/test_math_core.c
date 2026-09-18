@@ -38,6 +38,13 @@ static void test_fractions_and_parser(void) {
     assert(strstr(text, "^2") != NULL);
 }
 
+static void test_automatic_input_classification(void) {
+    assert(math_classify_input("x^2+1") == MATH_INPUT_FUNCTION);
+    assert(math_classify_input("  x^2+1=5  ") == MATH_INPUT_EQUATION);
+    assert(math_classify_input(
+               " piecewise(x|-2<x<0;-x|0<x<2) ") == MATH_INPUT_PIECEWISE);
+}
+
 static void test_complex_quadratic(void) {
     MathSolveResult result;
     MathEquation equation = parse_equation("x^2+2x+3=0");
@@ -248,6 +255,7 @@ static void test_more_analysis_and_piecewise_validation(void) {
 
 int main(void) {
     test_fractions_and_parser();
+    test_automatic_input_classification();
     test_complex_quadratic();
     test_rational_restrictions();
     test_function_analysis();

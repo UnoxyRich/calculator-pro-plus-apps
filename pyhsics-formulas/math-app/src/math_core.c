@@ -601,6 +601,29 @@ static void trim_span(const char *input, size_t *start, size_t *end) {
     }
 }
 
+MathInputKind math_classify_input(const char *input) {
+    size_t length;
+    size_t start = 0;
+    size_t end;
+    size_t index;
+
+    if (input == NULL) {
+        return MATH_INPUT_FUNCTION;
+    }
+    length = strlen(input);
+    end = length;
+    trim_span(input, &start, &end);
+    if (end - start >= 10 && strncmp(input + start, "piecewise(", 10) == 0) {
+        return MATH_INPUT_PIECEWISE;
+    }
+    for (index = start; index < end; index++) {
+        if (input[index] == '=') {
+            return MATH_INPUT_EQUATION;
+        }
+    }
+    return MATH_INPUT_FUNCTION;
+}
+
 static size_t find_top_level_character(const char *input, size_t start,
                                        size_t end, char target) {
     int depth = 0;

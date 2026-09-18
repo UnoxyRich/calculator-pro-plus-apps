@@ -77,6 +77,12 @@ typedef enum {
     MATH_ERR_INPUT
 } MathStatus;
 
+typedef enum {
+    MATH_INPUT_FUNCTION,
+    MATH_INPUT_EQUATION,
+    MATH_INPUT_PIECEWISE
+} MathInputKind;
+
 typedef struct {
     char method[48];
     char answer[MATH_OUTPUT_WIDTH];
@@ -137,8 +143,9 @@ MathStatus math_parse_equation(const char *input, MathEquation *out,
                                char *error, size_t error_capacity);
 MathStatus math_parse_piecewise(const char *input, MathPiecewise *out,
                                 char *error, size_t error_capacity);
+MathInputKind math_classify_input(const char *input);
 MathStatus math_expression_to_text(const MathExpr *expr, char *out,
-                                    size_t capacity);
+                                   size_t capacity);
 
 MathStatus math_solve_equation(const MathEquation *equation,
                                MathSolveResult *out);

@@ -311,7 +311,7 @@ static void run_automatic(void) {
     if (!read_expression("Input: ", input, sizeof(input))) {
         return;
     }
-    if (strncmp(input, "piecewise(", 10) == 0) {
+    if (math_classify_input(input) == MATH_INPUT_PIECEWISE) {
         status = math_parse_piecewise(input, &piecewise, error, sizeof(error));
         if (status != MATH_OK) {
             show_parse_error(error);
@@ -323,7 +323,7 @@ static void run_automatic(void) {
             return;
         }
         show_analysis(&analysis);
-    } else if (strchr(input, '=') != NULL) {
+    } else if (math_classify_input(input) == MATH_INPUT_EQUATION) {
         solve_text(input);
     } else {
         analyze_text(input);
