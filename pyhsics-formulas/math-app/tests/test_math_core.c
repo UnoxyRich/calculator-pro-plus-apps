@@ -26,6 +26,16 @@ static MathEquation parse_equation(const char *input) {
     return equation;
 }
 
+static int steps_contain(const MathSteps *steps, const char *text) {
+    uint8_t index;
+    for (index = 0; index < steps->count; index++) {
+        if (strstr(steps->lines[index], text) != NULL) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void test_fractions_and_parser(void) {
     MathFraction value;
     MathExpr expression = parse_expression("3(2x+3)^2+4x+6");
@@ -118,6 +128,7 @@ static void test_special_interval_analysis(void) {
     assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);
     assert(strcmp(analysis.concave_up, "none") == 0);
     assert(strcmp(analysis.concave_down, "none") == 0);
+    assert(steps_contain(&analysis.steps, "Parity"));
 
     assert(math_analyze_function(&radical, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "[-1,infinity)") == 0);

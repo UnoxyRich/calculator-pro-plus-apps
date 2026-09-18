@@ -2460,6 +2460,8 @@ MathStatus math_analyze_function(const MathExpr *expression,
                      "The expression parsed, but one or more exact analysis rules do not apply.");
         }
         step_add(&out->steps, "2. Preserve real-domain restrictions from radicals or absolute values.");
+        step_add(&out->steps, "3. Parity result: %s.", out->parity[0] == '\0'
+            ? "not determined exactly" : out->parity);
     }
 
     {
