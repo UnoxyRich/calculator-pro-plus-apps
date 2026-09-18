@@ -1740,19 +1740,6 @@ static int format_equation_domain(const MathPoly *left_denominator,
     return format_exclusion_domain(&combined, out, capacity);
 }
 
-static int find_node_type(const MathExpr *expression, int index, MathNodeType type,
-                          int *found) {
-    const MathNode *node = &expression->nodes[index];
-    if (node->type == type) {
-        *found = index;
-        return 1;
-    }
-    if (node->left >= 0 && find_node_type(expression, node->left, type, found)) {
-        return 1;
-    }
-    return node->right >= 0 && find_node_type(expression, node->right, type, found);
-}
-
 static int format_quadratic_range(const MathPolynomial *poly, char *out, size_t capacity) {
     MathPoly internal;
     MathFraction vertex_x;
@@ -2302,6 +2289,9 @@ MathStatus math_solve_equation(const MathEquation *equation,
     return MATH_OK;
 }
 
+static int analyze_absolute_pair(const MathExpr *expression,
+                                 MathAnalysis *out);
+
 MathStatus math_analyze_function(const MathExpr *expression,
                                  MathAnalysis *out) {
     MathPolynomial polynomial;
@@ -2309,7 +2299,7 @@ MathStatus math_analyze_function(const MathExpr *expression,
     char expression_text[160];
     char denominator_domain[MATH_OUTPUT_WIDTH];
     int special_node;
-    int absolute_node;
+    int absolute_pair_handled = 0;
     const char *parity_result;
     int sqrt_poly_ok = 0;
     MathPoly sqrt_poly;
@@ -2388,11 +2378,14 @@ MathStatus math_analyze_function(const MathExpr *expression,
         step_add(&out->steps, "2. Domain: %s.", out->domain);
         step_add(&out->steps, "3. Parity: compare f(-x) with f(x) and -f(x).");
     } else {
-        if (find_node_type(expression, expression->root, MATH_NODE_SQRT, &special_node)) {
+        if (analyze_absolute_pair(expression, out)) {
+            absolute_pair_handled = 1;
+        } else if (expression->nodes[expression->root].type == MATH_NODE_SQRT) {
+            special_node = expression->root;
             sqrt_poly_ok = polynomial_from_node(expression,
                 expression->nodes[special_node].left, &sqrt_poly);
         }
-        if (sqrt_poly_ok && sqrt_poly.degree == 1) {
+        if (!absolute_pair_handled && sqrt_poly_ok && sqrt_poly.degree == 1) {
             MathFraction boundary = fraction_divide(fraction_negate(sqrt_poly.coefficient[0]),
                                                     sqrt_poly.coefficient[1]);
             char value[64];
@@ -2405,7 +2398,7 @@ MathStatus math_analyze_function(const MathExpr *expression,
             snprintf(out->range, sizeof(out->range), "[0,infinity)");
             snprintf(out->parity, sizeof(out->parity),
                      "Not determined exactly for this radical expression");
-        } else if (sqrt_poly_ok && sqrt_poly.degree == 2
+        } else if (!absolute_pair_handled && sqrt_poly_ok && sqrt_poly.degree == 2
                 && sqrt_poly.coefficient[2].num > 0) {
             MathFraction radical_discriminant = fraction_subtract(
                 fraction_multiply(sqrt_poly.coefficient[1], sqrt_poly.coefficient[1]),
@@ -2425,11 +2418,11 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 snprintf(out->parity, sizeof(out->parity),
                          "Not determined exactly for this radical expression");
             }
-        } else if (find_node_type(expression, expression->root, MATH_NODE_ABS,
-                                  &absolute_node)) {
+        } else if (!absolute_pair_handled
+                && expression->nodes[expression->root].type == MATH_NODE_ABS) {
             MathPoly absolute_poly;
             int absolute_poly_ok = polynomial_from_node(expression,
-                expression->nodes[absolute_node].left, &absolute_poly);
+                expression->nodes[expression->root].left, &absolute_poly);
             snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
             if (absolute_poly_ok && absolute_poly.degree <= 1) {
                 snprintf(out->range, sizeof(out->range), "[0,infinity)");
@@ -2450,8 +2443,9 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 snprintf(out->parity, sizeof(out->parity),
                          "Not determined exactly for this absolute-value expression");
             }
-        } else {
-            snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
+        } else if (!absolute_pair_handled) {
+            snprintf(out->domain, sizeof(out->domain),
+                     "Exact domain not supported for this expression");
             snprintf(out->range, sizeof(out->range),
                      "Exact range not supported for this expression");
             snprintf(out->parity, sizeof(out->parity),
@@ -2459,13 +2453,15 @@ MathStatus math_analyze_function(const MathExpr *expression,
             snprintf(out->warning, sizeof(out->warning),
                      "The expression parsed, but one or more exact analysis rules do not apply.");
         }
-        step_add(&out->steps, "2. Preserve real-domain restrictions from radicals or absolute values.");
-        step_add(&out->steps, "3. Parity result: %s.", out->parity[0] == '\0'
-            ? "not determined exactly" : out->parity);
+        if (!absolute_pair_handled) {
+            step_add(&out->steps, "2. Preserve real-domain restrictions from radicals or absolute values.");
+            step_add(&out->steps, "3. Parity result: %s.", out->parity[0] == '\0'
+                ? "not determined exactly" : out->parity);
+        }
     }
 
     {
-        int intervals_handled = 0;
+        int intervals_handled = absolute_pair_handled;
         MathPoly special_poly;
         int special_poly_ok;
 
@@ -2578,6 +2574,12 @@ MathStatus math_analyze_function(const MathExpr *expression,
             int has_odd_terms = 0;
             int coefficient_index;
 
+            if (out->domain[0] == '\0'
+                    || strstr(out->domain, "not supported") != NULL) {
+                snprintf(out->domain, sizeof(out->domain),
+                         "(-infinity,infinity)");
+            }
+
             for (coefficient_index = 0;
                  coefficient_index <= polynomial.degree; coefficient_index++) {
                 if (math_fraction_is_zero(polynomial.coefficient[coefficient_index])) {
@@ -2669,6 +2671,272 @@ MathStatus math_analyze_function(const MathExpr *expression,
                  "Exact range not supported for this expression");
     }
     return MATH_OK;
+}
+
+typedef struct {
+    MathFraction slope;
+    MathFraction intercept;
+    MathFraction root;
+    int multiplier;
+} MathAbsoluteTerm;
+
+static int absolute_linear_term(const MathExpr *expression, int node_index,
+                                int multiplier, MathAbsoluteTerm *out) {
+    MathPoly inner;
+
+    if (expression->nodes[node_index].type != MATH_NODE_ABS
+            || !polynomial_from_node(expression,
+                                     expression->nodes[node_index].left, &inner)
+            || inner.degree != 1
+            || math_fraction_is_zero(inner.coefficient[1])) {
+        return 0;
+    }
+    out->slope = inner.coefficient[1];
+    out->intercept = inner.coefficient[0];
+    out->multiplier = multiplier;
+    if (out->slope.num < 0) {
+        out->slope = fraction_negate(out->slope);
+        out->intercept = fraction_negate(out->intercept);
+    }
+    out->root = fraction_divide(fraction_negate(out->intercept), out->slope);
+    return 1;
+}
+
+static void append_interval_text(char *out, size_t capacity,
+                                 const char *interval) {
+    size_t length = strlen(out);
+    if (length == 0) {
+        snprintf(out, capacity, "%s", interval);
+    } else if (length < capacity) {
+        snprintf(out + length, capacity - length, " U %s", interval);
+    }
+}
+
+static MathFraction absolute_pair_value(const MathAbsoluteTerm *terms,
+                                        int term_count, MathFraction x) {
+    MathFraction value = math_fraction_zero();
+    int index;
+
+    for (index = 0; index < term_count; index++) {
+        MathFraction inner = fraction_add(
+            fraction_multiply(terms[index].slope, x), terms[index].intercept);
+        MathFraction term_value = fraction_absolute(inner);
+        if (terms[index].multiplier < 0) {
+            term_value = fraction_negate(term_value);
+        }
+        value = fraction_add(value, term_value);
+    }
+    return value;
+}
+
+static int absolute_pair_matches(const MathAbsoluteTerm *left,
+                                 const MathAbsoluteTerm *right,
+                                 int right_multiplier_sign, int count) {
+    int used[2] = {0, 0};
+    int right_index;
+
+    for (right_index = 0; right_index < count; right_index++) {
+        int left_index;
+        int expected_multiplier = right[right_index].multiplier
+            * right_multiplier_sign;
+        int found = 0;
+        for (left_index = 0; left_index < count; left_index++) {
+            if (!used[left_index]
+                    && math_fraction_equal(left[left_index].slope,
+                                           right[right_index].slope)
+                    && math_fraction_equal(left[left_index].intercept,
+                                           right[right_index].intercept)
+                    && left[left_index].multiplier == expected_multiplier) {
+                used[left_index] = 1;
+                found = 1;
+                break;
+            }
+        }
+        if (!found) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static int analyze_absolute_pair(const MathExpr *expression,
+                                 MathAnalysis *out) {
+    MathNodeType root_type = expression->nodes[expression->root].type;
+    MathAbsoluteTerm terms[2];
+    MathAbsoluteTerm reflected[2];
+    MathFraction breakpoints[2];
+    MathFraction values[2];
+    MathFraction slopes[3];
+    MathFraction intercepts[3];
+    int term_count = 2;
+    int breakpoint_count = 0;
+    int segment_count;
+    int index;
+    int lower_unbounded = 0;
+    int upper_unbounded = 0;
+    int finite_value = 0;
+    MathFraction minimum = math_fraction_zero();
+    MathFraction maximum = math_fraction_zero();
+    char text_one[64];
+    char text_two[64];
+
+    if (root_type != MATH_NODE_ADD && root_type != MATH_NODE_SUBTRACT) {
+        return 0;
+    }
+    if (!absolute_linear_term(expression,
+                              expression->nodes[expression->root].left,
+                              1, &terms[0])
+            || !absolute_linear_term(expression,
+                                      expression->nodes[expression->root].right,
+                                      root_type == MATH_NODE_ADD ? 1 : -1,
+                                      &terms[1])) {
+        return 0;
+    }
+    breakpoints[breakpoint_count++] = terms[0].root;
+    if (!math_fraction_equal(terms[1].root, breakpoints[0])) {
+        breakpoints[breakpoint_count++] = terms[1].root;
+    }
+    if (breakpoint_count == 2
+            && math_fraction_compare(breakpoints[0], breakpoints[1]) > 0) {
+        MathFraction swap = breakpoints[0];
+        breakpoints[0] = breakpoints[1];
+        breakpoints[1] = swap;
+    }
+    segment_count = breakpoint_count + 1;
+    for (index = 0; index < segment_count; index++) {
+        MathFraction sample;
+        int term_index;
+
+        if (index == 0) {
+            sample = fraction_subtract(breakpoints[0], math_fraction_one());
+        } else if (index == breakpoint_count) {
+            sample = fraction_add(breakpoints[breakpoint_count - 1],
+                                  math_fraction_one());
+        } else {
+            sample = fraction_divide(
+                fraction_add(breakpoints[index - 1], breakpoints[index]),
+                math_fraction(2, 1));
+        }
+        slopes[index] = math_fraction_zero();
+        intercepts[index] = math_fraction_zero();
+        for (term_index = 0; term_index < term_count; term_index++) {
+            MathFraction inner = fraction_add(
+                fraction_multiply(terms[term_index].slope, sample),
+                terms[term_index].intercept);
+            int sign = inner.num < 0 ? -1 : 1;
+            MathFraction factor = math_fraction(
+                terms[term_index].multiplier * sign, 1);
+            slopes[index] = fraction_add(slopes[index],
+                fraction_multiply(factor, terms[term_index].slope));
+            intercepts[index] = fraction_add(intercepts[index],
+                fraction_multiply(factor, terms[term_index].intercept));
+        }
+        if (slopes[index].num == 0) {
+            MathFraction constant = intercepts[index];
+            if (!finite_value) {
+                minimum = constant;
+                maximum = constant;
+                finite_value = 1;
+            } else {
+                if (math_fraction_compare(constant, minimum) < 0) {
+                    minimum = constant;
+                }
+                if (math_fraction_compare(constant, maximum) > 0) {
+                    maximum = constant;
+                }
+            }
+        }
+    }
+    for (index = 0; index < breakpoint_count; index++) {
+        values[index] = absolute_pair_value(terms, term_count, breakpoints[index]);
+        if (!finite_value) {
+            minimum = values[index];
+            maximum = values[index];
+            finite_value = 1;
+        } else {
+            if (math_fraction_compare(values[index], minimum) < 0) {
+                minimum = values[index];
+            }
+            if (math_fraction_compare(values[index], maximum) > 0) {
+                maximum = values[index];
+            }
+        }
+    }
+    if (slopes[0].num > 0) {
+        lower_unbounded = 1;
+    } else if (slopes[0].num < 0) {
+        upper_unbounded = 1;
+    }
+    if (slopes[segment_count - 1].num > 0) {
+        upper_unbounded = 1;
+    } else if (slopes[segment_count - 1].num < 0) {
+        lower_unbounded = 1;
+    }
+    if (!finite_value) {
+        return 0;
+    }
+
+    snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
+    math_fraction_to_text(minimum, text_one, sizeof(text_one));
+    math_fraction_to_text(maximum, text_two, sizeof(text_two));
+    if (lower_unbounded && upper_unbounded) {
+        snprintf(out->range, sizeof(out->range), "(-infinity,infinity)");
+    } else if (lower_unbounded) {
+        snprintf(out->range, sizeof(out->range), "(-infinity,%s]", text_two);
+    } else if (upper_unbounded) {
+        snprintf(out->range, sizeof(out->range), "[%s,infinity)", text_one);
+    } else if (math_fraction_equal(minimum, maximum)) {
+        snprintf(out->range, sizeof(out->range), "{%s}", text_one);
+    } else {
+        snprintf(out->range, sizeof(out->range), "[%s,%s]", text_one, text_two);
+    }
+    out->increasing[0] = '\0';
+    out->decreasing[0] = '\0';
+    for (index = 0; index < segment_count; index++) {
+        char interval[MATH_OUTPUT_WIDTH];
+        if (index == 0) {
+            math_fraction_to_text(breakpoints[0], text_one, sizeof(text_one));
+            snprintf(interval, sizeof(interval), "(-infinity,%s)", text_one);
+        } else if (index == breakpoint_count) {
+            math_fraction_to_text(breakpoints[breakpoint_count - 1],
+                                  text_one, sizeof(text_one));
+            snprintf(interval, sizeof(interval), "(%s,infinity)", text_one);
+        } else {
+            math_fraction_to_text(breakpoints[index - 1], text_one, sizeof(text_one));
+            math_fraction_to_text(breakpoints[index], text_two, sizeof(text_two));
+            snprintf(interval, sizeof(interval), "(%s,%s)", text_one, text_two);
+        }
+        if (slopes[index].num > 0) {
+            append_interval_text(out->increasing, sizeof(out->increasing), interval);
+        } else if (slopes[index].num < 0) {
+            append_interval_text(out->decreasing, sizeof(out->decreasing), interval);
+        }
+    }
+    if (out->increasing[0] == '\0') {
+        snprintf(out->increasing, sizeof(out->increasing), "none");
+    }
+    if (out->decreasing[0] == '\0') {
+        snprintf(out->decreasing, sizeof(out->decreasing), "none");
+    }
+    snprintf(out->concave_up, sizeof(out->concave_up), "none");
+    snprintf(out->concave_down, sizeof(out->concave_down), "none");
+    reflected[0] = terms[0];
+    reflected[1] = terms[1];
+    reflected[0].intercept = fraction_negate(reflected[0].intercept);
+    reflected[1].intercept = fraction_negate(reflected[1].intercept);
+    if (absolute_pair_matches(terms, reflected, 1, term_count)) {
+        snprintf(out->parity, sizeof(out->parity), "Even");
+    } else if (absolute_pair_matches(terms, reflected, -1, term_count)) {
+        snprintf(out->parity, sizeof(out->parity), "Odd");
+    } else {
+        snprintf(out->parity, sizeof(out->parity), "Neither");
+    }
+    step_add(&out->steps, "2. Domain: (-infinity,infinity).");
+    step_add(&out->steps, "3. Split at the absolute-value zeros and combine line segments.");
+    step_add(&out->steps, "4. Range: %s.", out->range);
+    step_add(&out->steps, "5. Parity: %s.", out->parity);
+    out->status = MATH_OK;
+    return 1;
 }
 
 static int format_piece_interval(const MathPiecewiseBranch *branch,

@@ -119,7 +119,9 @@ static void test_function_analysis(void) {
 static void test_special_interval_analysis(void) {
     MathAnalysis analysis;
     MathExpr absolute = parse_expression("abs(x-2)");
+    MathExpr absolute_pair = parse_expression("abs(x+2)+abs(x-2)");
     MathExpr radical = parse_expression("sqrt(x+1)");
+    MathExpr nested_radical = parse_expression("sqrt(x)+1");
     MathExpr rational = parse_expression("1/(x-2)");
 
     assert(math_analyze_function(&absolute, &analysis) == MATH_OK);
@@ -130,11 +132,23 @@ static void test_special_interval_analysis(void) {
     assert(strcmp(analysis.concave_down, "none") == 0);
     assert(steps_contain(&analysis.steps, "Parity"));
 
+    assert(math_analyze_function(&absolute_pair, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
+    assert(strcmp(analysis.range, "[4,infinity)") == 0);
+    assert(strcmp(analysis.parity, "Even") == 0);
+    assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
+    assert(strcmp(analysis.decreasing, "(-infinity,-2)") == 0);
+    assert(steps_contain(&analysis.steps, "Parity"));
+
     assert(math_analyze_function(&radical, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "[-1,infinity)") == 0);
     assert(strcmp(analysis.increasing, "(-1,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "none") == 0);
     assert(strcmp(analysis.concave_down, "(-1,infinity)") == 0);
+
+    assert(math_analyze_function(&nested_radical, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain,
+                  "Exact domain not supported for this expression") == 0);
 
     assert(math_analyze_function(&rational, &analysis) == MATH_OK);
     assert(strcmp(analysis.increasing, "none") == 0);
