@@ -14,6 +14,11 @@
       left: 21.2%; top: 11.2%; width: 58.4%; height: 22.1%;
       object-fit: fill; image-rendering: pixelated; background: #f7f7f7;
     }
+    .screen-placeholder {
+      display: grid; place-items: center; text-align: center;
+      padding: 12px; box-sizing: border-box; color: #333;
+      font-size: 11px; line-height: 1.25;
+    }
     code { color: #b9e4ff; }
     p { line-height: 1.45; }
   </style>
@@ -25,7 +30,12 @@
       <code>../tests/emulator-artifacts/menu.bmp</code> and refresh.</p>
     <div class="device">
       <img src="../assets/ti84-plus-ce.jpg" alt="TI-84 Plus CE calculator">
-      <img class="screen" src="../tests/emulator-artifacts/menu.bmp" alt="CEmu LCD screenshot">
+      <img class="screen" src="../tests/emulator-artifacts/menu.bmp"
+        alt="CEmu LCD screenshot"
+        onerror="this.hidden=true; document.getElementById('screen-placeholder').hidden=false;">
+      <div id="screen-placeholder" class="screen screen-placeholder" hidden>
+        CEmu LCD screenshot will appear here after a ROM-backed test.
+      </div>
     </div>
   </main>
 </body>
