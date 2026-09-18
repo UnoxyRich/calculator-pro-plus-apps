@@ -150,6 +150,9 @@ static void test_average_rate_and_regression(void) {
     assert(math_average_rate_piecewise(&piecewise, math_fraction(0, 1),
                                        math_fraction(2, 1), &rate) == MATH_OK);
     assert(strcmp(rate.answer, "-1") == 0);
+    assert(math_average_rate_piecewise(&piecewise, math_fraction(-1, 1),
+                                       math_fraction(3, 1), &rate) == MATH_OK);
+    assert(strcmp(rate.answer, "1/2") == 0);
     assert(math_quadratic_regression(x_values, y_values, 3, &regression)
            == MATH_OK);
     assert(strcmp(regression.coefficient_a, "-163/3150") == 0);
@@ -209,6 +212,7 @@ static void test_rational_restrictions(void) {
 static void test_function_analysis(void) {
     MathAnalysis analysis;
     MathExpr even_function = parse_expression("x^3/x");
+    MathExpr worksheet_rational = parse_expression("(x^3-1)/(x-1)");
     MathExpr plain_even = parse_expression("x^2+1");
     MathExpr plain_odd = parse_expression("x^3");
     MathExpr plain_neither = parse_expression("x^2+x");
@@ -218,6 +222,10 @@ static void test_function_analysis(void) {
 
     assert(math_analyze_function(&even_function, &analysis) == MATH_OK);
     assert(strcmp(analysis.parity, "Even") == 0);
+    assert(math_analyze_function(&worksheet_rational, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-infinity,1) U (1,infinity)") == 0);
+    assert(strcmp(analysis.parity, "Neither (domain is not symmetric)") == 0);
+    assert(steps_contain(&analysis.steps, "Parity"));
     assert(math_analyze_function(&radical, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
     assert(strcmp(analysis.range, "[0,infinity)") == 0);

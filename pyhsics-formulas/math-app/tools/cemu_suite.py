@@ -70,6 +70,10 @@ def worksheet_smoke_sequence() -> list[str]:
     radical_left = ["2nd", "^2", "2", "mul", *x, "sub", "3", "rpar"]
     sequence += ["key|enter", submitted(radical_left), submitted(["1"]),
                  "key|clear"]
+    # Complex-coefficient linear equation: 2nd+decimal enters i on CE.
+    complex_left = ["lpar", "2", "add", "2nd", "dot", "rpar", *x]
+    sequence += ["key|enter", submitted(complex_left), submitted(["5"]),
+                 "key|clear"]
     # Function analysis.
     sequence += ["key|down", "key|enter", submitted([*x, "pow", "3"]),
                  "key|clear"]
