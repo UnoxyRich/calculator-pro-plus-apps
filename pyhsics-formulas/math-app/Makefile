@@ -16,16 +16,24 @@ ce:
 ifeq ($(CEDEV_BUILD),1)
 include $(shell cedev-config --makefile)
 else
-.PHONY: all test clean
+.PHONY: all test test-native-ui clean
 
 all: test
 
 test: build/math_core_tests
 	./build/math_core_tests
 
+test-native-ui: build/native_ui_tests
+	./build/native_ui_tests
+
 build/math_core_tests: src/math_core.c tests/test_math_core.c include/math_core.h
 	@mkdir -p build
 	$(CC) -std=c99 $(CFLAGS_HOST) -Wall -Wextra -Werror -Iinclude src/math_core.c tests/test_math_core.c -o $@
+
+build/native_ui_tests: src/math_core.c src/native_main.c tests/test_native_ui.c tests/native_ui_stubs.h include/math_core.h
+	@mkdir -p build
+	$(CC) -std=c99 $(CFLAGS_HOST) -Wall -Wextra -Werror -DMATHAPP_HOST_TEST -Iinclude -Itests -Dmain=mathapp_native_main -c src/native_main.c -o build/native_main_host.o
+	$(CC) -std=c99 $(CFLAGS_HOST) -Wall -Wextra -Werror -Iinclude src/math_core.c tests/test_native_ui.c build/native_main_host.o -o $@
 
 clean:
 	rm -rf build

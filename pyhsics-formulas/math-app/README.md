@@ -47,6 +47,14 @@ The suite also exercises cubic intervals, worksheet piecewise behavior,
 function composition, complex coefficients, two-radical verification,
 average rates, regression, and exact decimal normalization.
 
+The native calculator front end can also be smoke-tested on the host with a
+small TI-OS keypad/screen shim. This compiles the actual `src/native_main.c`
+and walks every menu tool, result page, and steps page:
+
+```sh
+make test-native-ui
+```
+
 ## Native calculator build
 
 Install the CE C/C++ Toolchain and make its `bin` directory available on

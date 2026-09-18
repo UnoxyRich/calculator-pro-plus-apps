@@ -5,9 +5,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef MATHAPP_HOST_TEST
+#include "native_ui_stubs.h"
+#else
 #include <ti/getcsc.h>
 #include <ti/screen.h>
 #include <tice.h>
+#endif
 
 static const char *menu_items[] = {
     "Automatic input",
