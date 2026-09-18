@@ -560,6 +560,39 @@ static void test_more_analysis_and_piecewise_validation(void) {
     assert(strcmp(analysis.parity, "Neither (domain is not symmetric)") == 0);
 }
 
+static void test_error_paths(void) {
+    MathExpr expression;
+    MathPiecewise piecewise;
+    MathAverageRateResult rate;
+    MathRegressionResult regression;
+    MathTransformResult transform;
+    MathTransformSpec spec;
+    MathFraction x_values[] = {
+        math_fraction(0, 1), math_fraction(0, 1), math_fraction(1, 1)
+    };
+    MathFraction y_values[] = {
+        math_fraction(1, 1), math_fraction(2, 1), math_fraction(3, 1)
+    };
+    char error[MATH_ERROR_WIDTH];
+    MathExpr line = parse_expression("1-x");
+
+    assert(math_parse_expression("", &expression, error, sizeof(error))
+           == MATH_ERR_SYNTAX);
+    assert(math_parse_expression("sqrt(", &expression, error, sizeof(error))
+           == MATH_ERR_SYNTAX);
+    assert(math_parse_piecewise("piecewise(x|[0,1];x|[1,2])",
+                                &piecewise, error, sizeof(error))
+           == MATH_ERR_SYNTAX);
+    assert(math_average_rate(&line, math_fraction(1, 1), math_fraction(1, 1),
+                             &rate) == MATH_ERR_INPUT);
+    assert(math_quadratic_regression(x_values, y_values, 3, &regression)
+           == MATH_ERR_INPUT);
+    memset(&spec, 0, sizeof(spec));
+    spec.horizontal_scale = math_fraction_zero();
+    spec.vertical_scale = math_fraction_one();
+    assert(math_transform_quadratic(&line, &spec, &transform) == MATH_ERR_INPUT);
+}
+
 int main(void) {
     test_fractions_and_parser();
     test_automatic_input_classification();
@@ -576,6 +609,7 @@ int main(void) {
     test_special_equations();
     test_radical_formatting_and_edge_cases();
     test_more_analysis_and_piecewise_validation();
+    test_error_paths();
     puts("math_core tests passed");
     return 0;
 }
