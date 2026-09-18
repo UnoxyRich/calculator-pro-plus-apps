@@ -2369,7 +2369,7 @@ static int format_exclusion_domain(const MathPoly *denominator,
     discriminant = fraction_subtract(fraction_multiply(b, b),
                                      fraction_multiply(math_fraction(4, 1),
                                                        fraction_multiply(a, c)));
-    if (discriminant.num <= 0 || !fraction_is_perfect_square(discriminant, &root_one)) {
+    if (discriminant.num < 0 || !fraction_is_perfect_square(discriminant, &root_one)) {
         return snprintf(out, capacity, "Real values except denominator zeros") >= 0
             && strlen(out) < capacity;
     }
@@ -3170,6 +3170,8 @@ static int analyze_squared_linear_radical(const MathExpr *expression,
                                           MathAnalysis *out);
 static int analyze_linear_sqrt_fraction(const MathExpr *expression,
                                         MathAnalysis *out);
+static int analyze_sqrt_rational_square(const MathExpr *expression,
+                                        MathAnalysis *out);
 
 MathStatus math_analyze_function(const MathExpr *expression,
                                  MathAnalysis *out) {
@@ -3260,7 +3262,8 @@ MathStatus math_analyze_function(const MathExpr *expression,
         if (analyze_absolute_pair(expression, out)
                 || analyze_shifted_special(expression, out)
                 || analyze_squared_linear_radical(expression, out)
-                || analyze_linear_sqrt_fraction(expression, out)) {
+                || analyze_linear_sqrt_fraction(expression, out)
+                || analyze_sqrt_rational_square(expression, out)) {
             absolute_pair_handled = 1;
         } else if (expression->nodes[expression->root].type == MATH_NODE_SQRT) {
             special_node = expression->root;
@@ -4515,6 +4518,222 @@ static int analyze_linear_sqrt_fraction(const MathExpr *expression,
     step_add(&out->steps, "2. Use t>=0 and inspect the exact fractional expression.");
     step_add(&out->steps, "3. Include the radicand boundary and denominator restriction.");
     step_add(&out->steps, "4. Range: %s.", out->range);
+    out->status = MATH_OK;
+    return 1;
+}
+
+static int polynomial_square_root_linear(const MathPoly *square,
+                                         MathPoly *root) {
+    MathFraction leading_root;
+    MathFraction constant_root;
+    MathFraction middle;
+
+    if (square->degree == 0) {
+        if (!fraction_is_perfect_square(square->coefficient[0],
+                                        &constant_root)) {
+            return 0;
+        }
+        poly_zero(root);
+        root->coefficient[0] = constant_root;
+        return 1;
+    }
+    if (square->degree != 2
+            || !fraction_is_perfect_square(square->coefficient[2],
+                                           &leading_root)
+            || !fraction_is_perfect_square(square->coefficient[0],
+                                           &constant_root)) {
+        return 0;
+    }
+    poly_zero(root);
+    root->degree = 1;
+    root->coefficient[1] = leading_root;
+    root->coefficient[0] = constant_root;
+    middle = fraction_multiply(math_fraction(2, 1),
+                               fraction_multiply(leading_root,
+                                                 constant_root));
+    if (math_fraction_equal(square->coefficient[1], middle)) {
+        return 1;
+    }
+    root->coefficient[0] = fraction_negate(constant_root);
+    middle = fraction_negate(middle);
+    return math_fraction_equal(square->coefficient[1], middle);
+}
+
+static int fraction_sign(MathFraction value) {
+    return value.num < 0 ? -1 : value.num > 0 ? 1 : 0;
+}
+
+static int analyze_sqrt_rational_square(const MathExpr *expression,
+                                        MathAnalysis *out) {
+    const MathNode *root = &expression->nodes[expression->root];
+    MathRational rational;
+    MathPoly numerator_root;
+    MathPoly denominator_root;
+    MathFraction determinant;
+    MathFraction ratio;
+    MathFraction numerator_slope;
+    MathFraction numerator_intercept;
+    MathFraction denominator_slope;
+    MathFraction denominator_intercept;
+    MathFraction breakpoints[2];
+    int breakpoint_count;
+    int index;
+    char expression_text[160];
+    char domain[MATH_OUTPUT_WIDTH];
+
+    if (root->type != MATH_NODE_SQRT || root->left < 0) {
+        return 0;
+    }
+    if (!rational_from_node(expression, root->left, &rational)
+            || !polynomial_square_root_linear(&rational.numerator,
+                                              &numerator_root)
+            || !polynomial_square_root_linear(&rational.denominator,
+                                              &denominator_root)
+            || denominator_root.degree != 1
+            || math_fraction_is_zero(denominator_root.coefficient[1])
+            || !format_exclusion_domain(&rational.denominator, domain,
+                                         sizeof(domain))) {
+        return 0;
+    }
+    snprintf(out->domain, sizeof(out->domain), "%s", domain);
+    numerator_slope = numerator_root.degree == 1
+        ? numerator_root.coefficient[1] : math_fraction_zero();
+    numerator_intercept = numerator_root.coefficient[0];
+    denominator_slope = denominator_root.coefficient[1];
+    denominator_intercept = denominator_root.coefficient[0];
+    determinant = fraction_subtract(
+        fraction_multiply(numerator_slope, denominator_intercept),
+        fraction_multiply(numerator_intercept, denominator_slope));
+    if (numerator_root.degree == 0) {
+        char value[64];
+        math_fraction_to_text(fraction_absolute(numerator_root.coefficient[0]),
+                              value, sizeof(value));
+        if (math_fraction_is_zero(numerator_root.coefficient[0])) {
+            snprintf(out->range, sizeof(out->range), "{%s}", value);
+        } else {
+            snprintf(out->range, sizeof(out->range), "(0,infinity)");
+        }
+    } else if (math_fraction_is_zero(determinant)) {
+        char value[64];
+        ratio = fraction_divide(numerator_slope, denominator_slope);
+        math_fraction_to_text(fraction_absolute(ratio), value, sizeof(value));
+        snprintf(out->range, sizeof(out->range), "{%s}", value);
+    } else {
+        snprintf(out->range, sizeof(out->range), "[0,infinity)");
+    }
+    if (math_fraction_is_zero(numerator_intercept)
+            && math_fraction_is_zero(numerator_slope)) {
+        snprintf(out->increasing, sizeof(out->increasing), "none");
+        snprintf(out->decreasing, sizeof(out->decreasing), "none");
+        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+        snprintf(out->concave_down, sizeof(out->concave_down), "none");
+    } else if (math_fraction_is_zero(determinant)) {
+        snprintf(out->increasing, sizeof(out->increasing), "none");
+        snprintf(out->decreasing, sizeof(out->decreasing), "none");
+        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+        snprintf(out->concave_down, sizeof(out->concave_down), "none");
+    } else {
+        MathFraction numerator_root_value = math_fraction_zero();
+        breakpoint_count = 1;
+        breakpoints[0] = fraction_divide(
+            fraction_negate(denominator_intercept), denominator_slope);
+        if (numerator_root.degree == 1) {
+            numerator_root_value = fraction_divide(
+                fraction_negate(numerator_intercept), numerator_slope);
+            if (!math_fraction_equal(numerator_root_value, breakpoints[0])) {
+                breakpoints[breakpoint_count++] = numerator_root_value;
+            }
+        }
+        if (breakpoint_count == 2
+                && math_fraction_compare(breakpoints[0], breakpoints[1]) > 0) {
+            MathFraction swap = breakpoints[0];
+            breakpoints[0] = breakpoints[1];
+            breakpoints[1] = swap;
+        }
+        out->increasing[0] = '\0';
+        out->decreasing[0] = '\0';
+        out->concave_up[0] = '\0';
+        out->concave_down[0] = '\0';
+        for (index = 0; index <= breakpoint_count; index++) {
+            MathFraction sample;
+            MathFraction numerator_value;
+            MathFraction denominator_value;
+            int derivative_sign;
+            int concavity_sign;
+            char interval[MATH_OUTPUT_WIDTH];
+            char lower[64];
+            char upper[64];
+
+            if (index == 0) {
+                sample = fraction_subtract(breakpoints[0], math_fraction_one());
+                math_fraction_to_text(breakpoints[0], upper, sizeof(upper));
+                snprintf(interval, sizeof(interval), "(-infinity,%s)", upper);
+            } else if (index == breakpoint_count) {
+                sample = fraction_add(breakpoints[breakpoint_count - 1],
+                                      math_fraction_one());
+                math_fraction_to_text(breakpoints[breakpoint_count - 1], lower,
+                                      sizeof(lower));
+                snprintf(interval, sizeof(interval), "(%s,infinity)", lower);
+            } else {
+                sample = fraction_divide(
+                    fraction_add(breakpoints[index - 1], breakpoints[index]),
+                    math_fraction(2, 1));
+                math_fraction_to_text(breakpoints[index - 1], lower,
+                                      sizeof(lower));
+                math_fraction_to_text(breakpoints[index], upper, sizeof(upper));
+                snprintf(interval, sizeof(interval), "(%s,%s)", lower, upper);
+            }
+            numerator_value = polynomial_evaluate_fraction(&numerator_root, sample);
+            denominator_value = polynomial_evaluate_fraction(&denominator_root, sample);
+            derivative_sign = fraction_sign(numerator_value)
+                * fraction_sign(denominator_value) * fraction_sign(determinant);
+            concavity_sign = fraction_sign(numerator_value)
+                * -fraction_sign(determinant) * fraction_sign(denominator_slope);
+            if (derivative_sign > 0) {
+                append_interval_text(out->increasing, sizeof(out->increasing), interval);
+            } else if (derivative_sign < 0) {
+                append_interval_text(out->decreasing, sizeof(out->decreasing), interval);
+            }
+            if (concavity_sign > 0) {
+                append_interval_text(out->concave_up, sizeof(out->concave_up), interval);
+            } else if (concavity_sign < 0) {
+                append_interval_text(out->concave_down, sizeof(out->concave_down), interval);
+            }
+        }
+        if (out->increasing[0] == '\0') {
+            snprintf(out->increasing, sizeof(out->increasing), "none");
+        }
+        if (out->decreasing[0] == '\0') {
+            snprintf(out->decreasing, sizeof(out->decreasing), "none");
+        }
+        if (out->concave_up[0] == '\0') {
+            snprintf(out->concave_up, sizeof(out->concave_up), "none");
+        }
+        if (out->concave_down[0] == '\0') {
+            snprintf(out->concave_down, sizeof(out->concave_down), "none");
+        }
+    }
+    if (math_fraction_is_zero(denominator_intercept)
+            && (numerator_root.degree == 0
+                || math_fraction_is_zero(determinant))) {
+        snprintf(out->parity, sizeof(out->parity), "Even");
+    } else if (!math_fraction_is_zero(denominator_intercept)) {
+        snprintf(out->parity, sizeof(out->parity),
+                 "Neither (domain is not symmetric)");
+    } else {
+        snprintf(out->parity, sizeof(out->parity), "Neither");
+    }
+    out->warning[0] = '\0';
+    math_expression_to_text(expression, expression_text, sizeof(expression_text));
+    steps_reset(&out->steps);
+    step_add(&out->steps, "1. Analyze f(x)=%s.", expression_text);
+    step_add(&out->steps, "2. Recognize sqrt((p(x)/q(x))^2)=|p(x)/q(x)|.");
+    step_add(&out->steps, "3. Preserve denominator zeros in the domain.");
+    step_add(&out->steps, "4. Range: %s.", out->range);
+    step_add(&out->steps, "5. Intervals: increasing %s; decreasing %s.",
+             out->increasing, out->decreasing);
+    step_add(&out->steps, "6. Concavity: up %s; down %s; parity %s.",
+             out->concave_up, out->concave_down, out->parity);
     out->status = MATH_OK;
     return 1;
 }

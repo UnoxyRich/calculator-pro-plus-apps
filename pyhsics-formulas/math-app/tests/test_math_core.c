@@ -64,6 +64,9 @@ static void test_function_composition(void) {
     MathExpr f = parse_expression("x^2-1");
     MathExpr g = parse_expression("sqrt(x+1)");
     MathExpr h = parse_expression("(1-x)/(1+x)");
+    MathExpr triple_expression = parse_expression(
+        "sqrt(((1-x)/(1+x))^2-1+1)");
+    MathAnalysis triple_analysis;
     MathCompositionResult result;
 
     assert(math_compose_functions(&f, &g, &result) == MATH_OK);
@@ -80,7 +83,40 @@ static void test_function_composition(void) {
     assert(strcmp(result.range, "(-1,1]") == 0);
     assert(math_compose_three_functions(&g, &f, &h, &result) == MATH_OK);
     assert(strstr(result.expression, "sqrt(") != NULL);
+    assert(strcmp(result.domain, "(-infinity,-1) U (-1,infinity)") == 0);
+    assert(strcmp(result.range, "[0,infinity)") == 0);
     assert(result.steps.count >= 4);
+    assert(math_analyze_function(&triple_expression, &triple_analysis) == MATH_OK);
+    assert(strcmp(triple_analysis.increasing,
+                  "(-infinity,-1) U (1,infinity)") == 0);
+    assert(strcmp(triple_analysis.decreasing, "(-1,1)") == 0);
+    assert(strcmp(triple_analysis.concave_up,
+                  "(-infinity,-1) U (-1,1)") == 0);
+    assert(strcmp(triple_analysis.concave_down, "(1,infinity)") == 0);
+}
+
+static void test_rational_square_analysis(void) {
+    MathAnalysis analysis;
+    MathExpr reciprocal = parse_expression("sqrt((2/(x+1))^2)");
+    MathExpr removable = parse_expression("sqrt(((x+1)/(x+1))^2)");
+
+    assert(math_analyze_function(&reciprocal, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain,
+                  "(-infinity,-1) U (-1,infinity)") == 0);
+    assert(strcmp(analysis.range, "(0,infinity)") == 0);
+    assert(strcmp(analysis.increasing, "(-infinity,-1)") == 0);
+    assert(strcmp(analysis.decreasing, "(-1,infinity)") == 0);
+    assert(strcmp(analysis.concave_up,
+                  "(-infinity,-1) U (-1,infinity)") == 0);
+    {
+        MathExpr reciprocal_even = parse_expression("sqrt((2/x)^2)");
+        assert(math_analyze_function(&reciprocal_even, &analysis) == MATH_OK);
+        assert(strcmp(analysis.parity, "Even") == 0);
+    }
+    assert(math_analyze_function(&removable, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain,
+                  "(-infinity,-1) U (-1,infinity)") == 0);
+    assert(strcmp(analysis.range, "{1}") == 0);
 }
 
 static void test_average_rate_and_regression(void) {
@@ -520,6 +556,7 @@ int main(void) {
     test_fractions_and_parser();
     test_automatic_input_classification();
     test_function_composition();
+    test_rational_square_analysis();
     test_average_rate_and_regression();
     test_complex_quadratic();
     test_complex_coefficients();
