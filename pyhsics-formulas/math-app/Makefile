@@ -18,7 +18,7 @@ include $(shell cedev-config --makefile)
 else
 .PHONY: all test test-native-ui clean
 
-all: test
+all: test test-native-ui
 
 test: build/math_core_tests
 	./build/math_core_tests

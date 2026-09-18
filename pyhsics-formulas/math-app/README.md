@@ -32,7 +32,8 @@ cases are reported instead of being replaced with decimal guesses.
 
 ## Host verification
 
-The default target runs the core tests on macOS or another C99 compiler:
+The default target runs the core and native-front-end smoke tests on macOS or
+another C99 compiler:
 
 ```sh
 make
