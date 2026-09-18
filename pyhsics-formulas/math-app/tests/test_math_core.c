@@ -110,6 +110,7 @@ static void test_function_analysis(void) {
     assert(math_analyze_function(&shifted_radical, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
     assert(strcmp(analysis.range, "[1,infinity)") == 0);
+    assert(strcmp(analysis.parity, "Even") == 0);
     assert(strcmp(analysis.increasing, "(0,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,0)") == 0);
     assert(strcmp(analysis.concave_up, "(-infinity,infinity)") == 0);
@@ -122,6 +123,7 @@ static void test_function_analysis(void) {
         assert(strcmp(analysis.decreasing, "(-infinity,-1)") == 0);
         assert(strcmp(analysis.concave_down,
                       "(-infinity,-1) U (1,infinity)") == 0);
+        assert(strcmp(analysis.parity, "Even") == 0);
     }
     {
         MathExpr irrational_radical_gap = parse_expression("sqrt(x^2-2)");
@@ -172,6 +174,34 @@ static void test_special_interval_analysis(void) {
     assert(strcmp(analysis.range, "[2,infinity)") == 0);
     assert(strcmp(analysis.increasing, "(-1,infinity)") == 0);
     assert(strcmp(analysis.concave_down, "(-1,infinity)") == 0);
+    assert(strcmp(analysis.parity, "Neither (domain is not symmetric)") == 0);
+
+    {
+        MathExpr lowered_sqrt = parse_expression("sqrt(x+1)-2");
+        MathExpr reflected_sqrt = parse_expression("2-sqrt(x+1)");
+        MathExpr lowered_absolute = parse_expression("abs(x-2)-3");
+        MathExpr reflected_absolute = parse_expression("-abs(x-2)");
+
+        assert(math_analyze_function(&lowered_sqrt, &analysis) == MATH_OK);
+        assert(strcmp(analysis.range, "[-2,infinity)") == 0);
+        assert(strcmp(analysis.increasing, "(-1,infinity)") == 0);
+        assert(strcmp(analysis.concave_down, "(-1,infinity)") == 0);
+        assert(steps_contain(&analysis.steps, "vertical shift"));
+
+        assert(math_analyze_function(&reflected_sqrt, &analysis) == MATH_OK);
+        assert(strcmp(analysis.range, "(-infinity,2]") == 0);
+        assert(strcmp(analysis.decreasing, "(-1,infinity)") == 0);
+        assert(strcmp(analysis.concave_up, "(-1,infinity)") == 0);
+
+        assert(math_analyze_function(&lowered_absolute, &analysis) == MATH_OK);
+        assert(strcmp(analysis.range, "[-3,infinity)") == 0);
+        assert(strcmp(analysis.parity, "Neither") == 0);
+
+        assert(math_analyze_function(&reflected_absolute, &analysis) == MATH_OK);
+        assert(strcmp(analysis.range, "(-infinity,0]") == 0);
+        assert(strcmp(analysis.increasing, "(-infinity,2)") == 0);
+        assert(strcmp(analysis.decreasing, "(2,infinity)") == 0);
+    }
 
     assert(math_analyze_function(&absolute_pair, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
@@ -285,6 +315,7 @@ static void test_piecewise_analysis(void) {
     assert(piecewise.count == 2);
     assert(math_analyze_piecewise(&piecewise, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "(-2,0) U (0,2)") == 0);
+    assert(strcmp(analysis.range, "(-2,0)") == 0);
     assert(strcmp(analysis.parity, "Even") == 0);
     assert(strcmp(analysis.increasing, "(-2,0)") == 0);
     assert(strcmp(analysis.decreasing, "(0,2)") == 0);
@@ -364,6 +395,10 @@ static void test_more_analysis_and_piecewise_validation(void) {
     assert(strcmp(analysis.parity, "Even") == 0);
     assert(math_parse_piecewise("piecewise(x|[0,1];x|[1,2])",
                                 &piecewise, error, sizeof(error)) == MATH_ERR_SYNTAX);
+    assert(math_parse_piecewise("piecewise(x|[0,1])",
+                                &piecewise, error, sizeof(error)) == MATH_OK);
+    assert(math_analyze_piecewise(&piecewise, &analysis) == MATH_OK);
+    assert(strcmp(analysis.parity, "Neither (domain is not symmetric)") == 0);
 }
 
 int main(void) {

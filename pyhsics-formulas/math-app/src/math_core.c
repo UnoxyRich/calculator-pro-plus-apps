@@ -2464,7 +2464,7 @@ MathStatus math_analyze_function(const MathExpr *expression,
             }
             snprintf(out->range, sizeof(out->range), "[0,infinity)");
             snprintf(out->parity, sizeof(out->parity),
-                     "Not determined exactly for this radical expression");
+                     "Neither (domain is not symmetric)");
         } else if (!absolute_pair_handled && sqrt_poly_ok && sqrt_poly.degree == 2
                 && sqrt_poly.coefficient[2].num > 0) {
             MathFraction radical_discriminant = fraction_subtract(
@@ -2505,12 +2505,11 @@ MathStatus math_analyze_function(const MathExpr *expression,
             } else {
                 snprintf(out->range, sizeof(out->range), "[0,infinity)");
             }
-            if (sqrt_poly.coefficient[1].num == 0
-                    && sqrt_poly.coefficient[0].num == 0) {
+            if (sqrt_poly.coefficient[1].num == 0) {
                 snprintf(out->parity, sizeof(out->parity), "Even");
             } else {
                 snprintf(out->parity, sizeof(out->parity),
-                         "Not determined exactly for this radical expression");
+                         "Neither");
             }
         } else if (!absolute_pair_handled
                 && expression->nodes[expression->root].type == MATH_NODE_ABS) {
@@ -3109,23 +3108,41 @@ static int analyze_shifted_special(const MathExpr *expression,
                                    MathAnalysis *out) {
     const MathNode *root = &expression->nodes[expression->root];
     int special_index = -1;
+    int special_sign = 1;
     MathFraction offset;
     MathPoly inner;
     char expression_text[160];
     char boundary_text[64];
     char offset_text[64];
 
-    if (root->type != MATH_NODE_ADD) {
-        return 0;
-    }
-    if ((expression->nodes[root->left].type == MATH_NODE_ABS
-            || expression->nodes[root->left].type == MATH_NODE_SQRT)
+    offset = math_fraction_zero();
+    if (root->type == MATH_NODE_NEGATE
+            && (expression->nodes[root->left].type == MATH_NODE_ABS
+                || expression->nodes[root->left].type == MATH_NODE_SQRT)) {
+        special_index = root->left;
+        special_sign = -1;
+    } else if (root->type == MATH_NODE_ADD
+            && (expression->nodes[root->left].type == MATH_NODE_ABS
+                || expression->nodes[root->left].type == MATH_NODE_SQRT)
             && constant_node_value(expression, root->right, &offset)) {
         special_index = root->left;
-    } else if ((expression->nodes[root->right].type == MATH_NODE_ABS
-            || expression->nodes[root->right].type == MATH_NODE_SQRT)
+    } else if (root->type == MATH_NODE_ADD
+            && (expression->nodes[root->right].type == MATH_NODE_ABS
+                || expression->nodes[root->right].type == MATH_NODE_SQRT)
             && constant_node_value(expression, root->left, &offset)) {
         special_index = root->right;
+    } else if (root->type == MATH_NODE_SUBTRACT
+            && (expression->nodes[root->left].type == MATH_NODE_ABS
+                || expression->nodes[root->left].type == MATH_NODE_SQRT)
+            && constant_node_value(expression, root->right, &offset)) {
+        special_index = root->left;
+        offset = fraction_negate(offset);
+    } else if (root->type == MATH_NODE_SUBTRACT
+            && constant_node_value(expression, root->left, &offset)
+            && (expression->nodes[root->right].type == MATH_NODE_ABS
+                || expression->nodes[root->right].type == MATH_NODE_SQRT)) {
+        special_index = root->right;
+        special_sign = -1;
     }
     if (special_index < 0
             || !polynomial_from_node(expression,
@@ -3143,8 +3160,13 @@ static int analyze_shifted_special(const MathExpr *expression,
         math_fraction_to_text(vertex, boundary_text, sizeof(boundary_text));
         math_fraction_to_text(offset, offset_text, sizeof(offset_text));
         snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
-        snprintf(out->range, sizeof(out->range), "[%s,infinity)", offset_text);
-        if (inner.coefficient[1].num > 0) {
+        if (special_sign > 0) {
+            snprintf(out->range, sizeof(out->range), "[%s,infinity)", offset_text);
+        } else {
+            snprintf(out->range, sizeof(out->range), "(-infinity,%s]", offset_text);
+        }
+        if ((inner.coefficient[1].num > 0 && special_sign > 0)
+                || (inner.coefficient[1].num < 0 && special_sign < 0)) {
             snprintf(out->increasing, sizeof(out->increasing),
                      "(%s,infinity)", boundary_text);
             snprintf(out->decreasing, sizeof(out->decreasing),
@@ -3168,33 +3190,55 @@ static int analyze_shifted_special(const MathExpr *expression,
                                    inner.coefficient[1]);
         math_fraction_to_text(boundary, boundary_text, sizeof(boundary_text));
         math_fraction_to_text(offset, offset_text, sizeof(offset_text));
+        if (special_sign > 0) {
+            snprintf(out->range, sizeof(out->range), "[%s,infinity)", offset_text);
+        } else {
+            snprintf(out->range, sizeof(out->range), "(-infinity,%s]", offset_text);
+        }
         if (inner.coefficient[1].num > 0) {
             snprintf(out->domain, sizeof(out->domain), "[%s,infinity)",
                      boundary_text);
-            snprintf(out->increasing, sizeof(out->increasing),
-                     "(%s,infinity)", boundary_text);
-            snprintf(out->decreasing, sizeof(out->decreasing), "none");
-            snprintf(out->concave_down, sizeof(out->concave_down),
-                     "(%s,infinity)", boundary_text);
         } else {
             snprintf(out->domain, sizeof(out->domain), "(-infinity,%s]",
                      boundary_text);
-            snprintf(out->increasing, sizeof(out->increasing), "none");
-            snprintf(out->decreasing, sizeof(out->decreasing),
-                     "(-infinity,%s)", boundary_text);
-            snprintf(out->concave_down, sizeof(out->concave_down),
-                     "(-infinity,%s)", boundary_text);
         }
-        snprintf(out->range, sizeof(out->range), "[%s,infinity)", offset_text);
-        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+        {
+            char domain_interval[MATH_OUTPUT_WIDTH];
+            if (inner.coefficient[1].num > 0) {
+                snprintf(domain_interval, sizeof(domain_interval),
+                         "(%s,infinity)", boundary_text);
+            } else {
+                snprintf(domain_interval, sizeof(domain_interval),
+                         "(-infinity,%s)", boundary_text);
+            }
+            if ((inner.coefficient[1].num > 0 && special_sign > 0)
+                    || (inner.coefficient[1].num < 0 && special_sign < 0)) {
+                snprintf(out->increasing, sizeof(out->increasing), "%s",
+                         domain_interval);
+                snprintf(out->decreasing, sizeof(out->decreasing), "none");
+            } else {
+                snprintf(out->increasing, sizeof(out->increasing), "none");
+                snprintf(out->decreasing, sizeof(out->decreasing), "%s",
+                         domain_interval);
+            }
+            if (special_sign > 0) {
+                snprintf(out->concave_up, sizeof(out->concave_up), "none");
+                snprintf(out->concave_down, sizeof(out->concave_down), "%s",
+                         domain_interval);
+            } else {
+                snprintf(out->concave_up, sizeof(out->concave_up), "%s",
+                         domain_interval);
+                snprintf(out->concave_down, sizeof(out->concave_down), "none");
+            }
+        }
         snprintf(out->parity, sizeof(out->parity),
-                 "Not determined exactly for this radical expression");
+                 "Neither (domain is not symmetric)");
     }
-    snprintf(out->warning, sizeof(out->warning), "");
+    out->warning[0] = '\0';
     math_expression_to_text(expression, expression_text, sizeof(expression_text));
     steps_reset(&out->steps);
     step_add(&out->steps, "1. Analyze f(x)=%s.", expression_text);
-    step_add(&out->steps, "2. Preserve the exact constant shift in the range.");
+    step_add(&out->steps, "2. Preserve the exact vertical shift in the range.");
     step_add(&out->steps, "3. Split at the special-function boundary x=%s.",
              boundary_text);
     step_add(&out->steps, "4. Parity result: %s.", out->parity);
@@ -3217,6 +3261,24 @@ static int format_piece_interval(const MathPiecewiseBranch *branch,
 
 static int append_union_text(char *out, size_t capacity, const char *piece) {
     size_t length = strlen(out);
+    const char *cursor = out;
+
+    if (strcmp(out, piece) == 0) {
+        return 1;
+    }
+    while (*cursor != '\0') {
+        const char *separator = strstr(cursor, " U ");
+        size_t token_length = separator == NULL
+            ? strlen(cursor) : (size_t) (separator - cursor);
+        if (strlen(piece) == token_length
+                && strncmp(cursor, piece, token_length) == 0) {
+            return 1;
+        }
+        if (separator == NULL) {
+            break;
+        }
+        cursor = separator + 3;
+    }
     if (length == 0) {
         return snprintf(out, capacity, "%s", piece) >= 0 && strlen(out) < capacity;
     }
@@ -3416,6 +3478,12 @@ static int piecewise_parity(const MathPiecewise *piecewise, const char **result)
     uint8_t index;
     int even = 1;
     int odd = 1;
+    for (index = 0; index < piecewise->count; index++) {
+        if (piecewise_matching_branch(piecewise, index) < 0) {
+            *result = "Neither (domain is not symmetric)";
+            return 1;
+        }
+    }
     for (index = 0; index < piecewise->count; index++) {
         int match = piecewise_matching_branch(piecewise, index);
         MathPolynomial source_public;
