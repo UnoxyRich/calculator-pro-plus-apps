@@ -47,9 +47,15 @@ static uint8_t print_wrapped(const char *text) {
 }
 
 static uint8_t print_label_value(const char *label, const char *value) {
-    char line[160];
-    snprintf(line, sizeof(line), "%s%s", label, value);
-    return print_wrapped(line);
+    uint8_t lines;
+
+    /* Keep the value intact even when an exact interval is longer than the
+     * screen width.  The previous fixed 160-byte combined buffer could clip
+     * a valid result before print_wrapped had a chance to paginate it. */
+    os_PutStrFull(label);
+    os_NewLine();
+    lines = print_wrapped(value);
+    return (uint8_t) (lines + 1);
 }
 
 static void wait_for_key(void) {
