@@ -123,6 +123,14 @@ static void test_function_analysis(void) {
         assert(strcmp(analysis.concave_down,
                       "(-infinity,-1) U (1,infinity)") == 0);
     }
+    {
+        MathExpr irrational_radical_gap = parse_expression("sqrt(x^2-2)");
+        assert(math_analyze_function(&irrational_radical_gap, &analysis) == MATH_OK);
+        assert(strcmp(analysis.domain,
+                      "(-infinity,-sqrt(2)] U [sqrt(2),infinity)") == 0);
+        assert(strcmp(analysis.increasing, "(sqrt(2),infinity)") == 0);
+        assert(strcmp(analysis.decreasing, "(-infinity,-sqrt(2))") == 0);
+    }
     assert(math_analyze_function(&quadratic, &analysis) == MATH_OK);
     assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);
