@@ -59,6 +59,7 @@ static void test_rational_restrictions(void) {
     MathAnalysis analysis;
     MathSolveResult result;
     MathExpr expression = parse_expression("(x^2-1)/(x-1)");
+    MathExpr constant_with_hole = parse_expression("(x-1)/(x-1)");
     MathEquation forbidden = parse_equation("x/(x-1)=1/(x-1)");
     MathEquation hole_root = parse_equation("(x^2-1)/(x-1)=0");
     MathEquation identity_with_hole = parse_equation("(x-1)/(x-1)=1");
@@ -67,6 +68,9 @@ static void test_rational_restrictions(void) {
     assert(strcmp(analysis.domain, "(-infinity,1) U (1,infinity)") == 0);
     assert(strcmp(analysis.range, "(-infinity,2) U (2,infinity)") == 0);
     assert(strcmp(analysis.parity, "Neither (domain is not symmetric)") == 0);
+    assert(math_analyze_function(&constant_with_hole, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-infinity,1) U (1,infinity)") == 0);
+    assert(strcmp(analysis.range, "{1}") == 0);
     assert(math_solve_equation(&forbidden, &result) == MATH_OK);
     assert(strcmp(result.answer, "No solutions") == 0);
     assert(math_solve_equation(&hole_root, &result) == MATH_OK);

@@ -2337,14 +2337,27 @@ MathStatus math_analyze_function(const MathExpr *expression,
             }
         } else if (rational.denominator.degree == 1
                 && rational.numerator.degree <= 1) {
-            MathFraction asymptote = rational.numerator.degree == 1
-                ? fraction_divide(rational.numerator.coefficient[1],
-                                  rational.denominator.coefficient[1])
-                : math_fraction_zero();
+            MathFraction determinant = fraction_subtract(
+                fraction_multiply(rational.numerator.coefficient[1],
+                                  rational.denominator.coefficient[0]),
+                fraction_multiply(rational.numerator.coefficient[0],
+                                  rational.denominator.coefficient[1]));
             char value[64];
-            math_fraction_to_text(asymptote, value, sizeof(value));
-            snprintf(out->range, sizeof(out->range),
-                     "(-infinity,%s) U (%s,infinity)", value, value);
+            if (math_fraction_is_zero(determinant)) {
+                MathFraction constant = fraction_divide(
+                    rational.numerator.coefficient[1],
+                    rational.denominator.coefficient[1]);
+                math_fraction_to_text(constant, value, sizeof(value));
+                snprintf(out->range, sizeof(out->range), "{%s}", value);
+            } else {
+                MathFraction asymptote = rational.numerator.degree == 1
+                    ? fraction_divide(rational.numerator.coefficient[1],
+                                      rational.denominator.coefficient[1])
+                    : math_fraction_zero();
+                math_fraction_to_text(asymptote, value, sizeof(value));
+                snprintf(out->range, sizeof(out->range),
+                         "(-infinity,%s) U (%s,infinity)", value, value);
+            }
         } else if (rational.denominator.degree == 1
                 && rational.numerator.degree == 2) {
             MathFraction denominator_root = fraction_divide(
