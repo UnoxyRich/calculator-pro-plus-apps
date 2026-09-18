@@ -93,6 +93,46 @@ typedef struct {
     const char *value;
 } ResultField;
 
+typedef union {
+    struct {
+        MathEquation equation;
+        MathSolveResult result;
+    } solve;
+    struct {
+        MathExpr expression;
+        MathAnalysis result;
+    } analyze;
+    struct {
+        MathExpr expression;
+        MathTransformResult result;
+    } transform;
+    struct {
+        MathPiecewise piecewise;
+        MathAnalysis result;
+    } piecewise;
+    struct {
+        MathExpr outer;
+        MathExpr inner;
+        MathCompositionResult result;
+    } compose;
+    struct {
+        MathExpr outer;
+        MathExpr middle;
+        MathExpr inner;
+        MathCompositionResult result;
+    } compose_three;
+    struct {
+        MathExpr expression;
+        MathPiecewise piecewise;
+        MathAverageRateResult result;
+    } average;
+    struct {
+        MathRegressionResult result;
+    } regression;
+} NativeWorkspace;
+
+static NativeWorkspace native_workspace;
+
 static void show_result_pages(const char *title, const ResultField *fields,
                               size_t field_count, const MathSteps *steps) {
     size_t index;
@@ -232,64 +272,64 @@ static void show_parse_error(const char *error) {
 
 static void solve_text(const char *input) {
     char error[MATH_ERROR_WIDTH];
-    MathEquation equation;
-    MathSolveResult result;
+    MathEquation *equation = &native_workspace.solve.equation;
+    MathSolveResult *result = &native_workspace.solve.result;
     MathStatus status;
 
-    status = math_parse_equation(input, &equation, error, sizeof(error));
+    status = math_parse_equation(input, equation, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
     }
-    status = math_solve_equation(&equation, &result);
-    if (status == MATH_ERR_INPUT || result.status == MATH_ERR_LIMIT) {
+    status = math_solve_equation(equation, result);
+    if (status == MATH_ERR_INPUT || result->status == MATH_ERR_LIMIT) {
         show_parse_error("The exact result exceeded the app storage limit.");
         return;
     }
-    show_solution(&result);
+    show_solution(result);
 }
 
 static void solve_sides(const char *left_input, const char *right_input) {
     char error[MATH_ERROR_WIDTH];
-    MathEquation equation;
-    MathSolveResult result;
+    MathEquation *equation = &native_workspace.solve.equation;
+    MathSolveResult *result = &native_workspace.solve.result;
     MathStatus status;
 
-    status = math_parse_expression(left_input, &equation.left,
+    status = math_parse_expression(left_input, &equation->left,
                                    error, sizeof(error));
     if (status == MATH_OK) {
-        status = math_parse_expression(right_input, &equation.right,
+        status = math_parse_expression(right_input, &equation->right,
                                        error, sizeof(error));
     }
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
     }
-    status = math_solve_equation(&equation, &result);
-    if (status == MATH_ERR_INPUT || result.status == MATH_ERR_LIMIT) {
+    status = math_solve_equation(equation, result);
+    if (status == MATH_ERR_INPUT || result->status == MATH_ERR_LIMIT) {
         show_parse_error("The exact result exceeded the app storage limit.");
         return;
     }
-    show_solution(&result);
+    show_solution(result);
 }
 
 static void analyze_text(const char *input) {
     char error[MATH_ERROR_WIDTH];
-    MathExpr expression;
-    MathAnalysis result;
+    MathExpr *expression = &native_workspace.analyze.expression;
+    MathAnalysis *result = &native_workspace.analyze.result;
     MathStatus status;
 
-    status = math_parse_expression(input, &expression, error, sizeof(error));
+    status = math_parse_expression(input, expression, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
     }
-    status = math_analyze_function(&expression, &result);
+    status = math_analyze_function(expression, result);
     if (status != MATH_OK) {
         show_parse_error("The function could not be analyzed.");
         return;
     }
-    show_analysis(&result);
+    show_analysis(result);
 }
 
 static void run_solver(void) {
@@ -314,16 +354,16 @@ static void run_analysis(void) {
 static void run_transform(void) {
     char input[MATH_OUTPUT_WIDTH];
     char error[MATH_ERROR_WIDTH];
-    MathExpr expression;
+    MathExpr *expression = &native_workspace.transform.expression;
     MathTransformSpec spec;
-    MathTransformResult result;
+    MathTransformResult *result = &native_workspace.transform.result;
     MathStatus status;
 
     os_ClrHomeFull();
     if (!read_expression("Function: ", input, sizeof(input))) {
         return;
     }
-    status = math_parse_expression(input, &expression, error, sizeof(error));
+    status = math_parse_expression(input, expression, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
@@ -340,52 +380,52 @@ static void run_transform(void) {
         show_parse_error("Reflection choices must be 0 or 1.");
         return;
     }
-    status = math_transform_quadratic(&expression, &spec, &result);
+    status = math_transform_quadratic(expression, &spec, result);
     if (status != MATH_OK) {
-        show_parse_error(result.warning);
+        show_parse_error(result->warning);
         return;
     }
     {
         const ResultField fields[] = {
-            {"g(x)=", result.formula},
-            {"Vertex form: ", result.vertex_form},
-            {"Vertex: ", result.vertex},
-            {"x-int: ", result.x_intercepts},
-            {"y-int: ", result.y_intercept}
+            {"g(x)=", result->formula},
+            {"Vertex form: ", result->vertex_form},
+            {"Vertex: ", result->vertex},
+            {"x-int: ", result->x_intercepts},
+            {"y-int: ", result->y_intercept}
         };
         show_result_pages("Transform result", fields,
-                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+                          sizeof(fields) / sizeof(fields[0]), &result->steps);
     }
 }
 
 static void run_piecewise_analysis(void) {
     char error[MATH_ERROR_WIDTH];
-    MathPiecewise piecewise;
-    MathAnalysis result;
+    MathPiecewise *piecewise = &native_workspace.piecewise.piecewise;
+    MathAnalysis *result = &native_workspace.piecewise.result;
     MathStatus status;
 
     os_ClrHomeFull();
     os_PutStrFull("Guided piecewise input");
     os_NewLine();
-    if (!read_piecewise_guided(&piecewise, error, sizeof(error))) {
+    if (!read_piecewise_guided(piecewise, error, sizeof(error))) {
         show_parse_error(error);
         return;
     }
-    status = math_analyze_piecewise(&piecewise, &result);
+    status = math_analyze_piecewise(piecewise, result);
     if (status != MATH_OK) {
         show_parse_error("The piecewise function could not be analyzed.");
         return;
     }
-    show_analysis(&result);
+    show_analysis(result);
 }
 
 static void run_compose(void) {
     char outer_input[MATH_OUTPUT_WIDTH];
     char inner_input[MATH_OUTPUT_WIDTH];
     char error[MATH_ERROR_WIDTH];
-    MathExpr outer;
-    MathExpr inner;
-    MathCompositionResult result;
+    MathExpr *outer = &native_workspace.compose.outer;
+    MathExpr *inner = &native_workspace.compose.inner;
+    MathCompositionResult *result = &native_workspace.compose.result;
     MathStatus status;
 
     os_ClrHomeFull();
@@ -393,38 +433,38 @@ static void run_compose(void) {
             || !read_expression("Inner g(x)=", inner_input, sizeof(inner_input))) {
         return;
     }
-    status = math_parse_expression(outer_input, &outer, error, sizeof(error));
+    status = math_parse_expression(outer_input, outer, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
     }
-    status = math_parse_expression(inner_input, &inner, error, sizeof(error));
+    status = math_parse_expression(inner_input, inner, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
     }
-    status = math_compose_functions(&outer, &inner, &result);
+    status = math_compose_functions(outer, inner, result);
     if (status != MATH_OK) {
-        show_parse_error(result.warning);
+        show_parse_error(result->warning);
         return;
     }
     {
         const ResultField fields[] = {
-            {"Expression: ", result.expression},
-            {"Domain: ", result.domain},
-            {"Range: ", result.range}
+            {"Expression: ", result->expression},
+            {"Domain: ", result->domain},
+            {"Range: ", result->range}
         };
         show_result_pages("Composition", fields,
-                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+                          sizeof(fields) / sizeof(fields[0]), &result->steps);
     }
 }
 
 static void run_average_rate(void) {
     char input[MATH_OUTPUT_WIDTH];
     char error[MATH_ERROR_WIDTH];
-    MathExpr expression;
-    MathPiecewise piecewise;
-    MathAverageRateResult result;
+    MathExpr *expression = &native_workspace.average.expression;
+    MathPiecewise *piecewise = &native_workspace.average.piecewise;
+    MathAverageRateResult *result = &native_workspace.average.result;
     MathFraction first_x;
     MathFraction second_x;
     uint8_t piecewise_mode;
@@ -436,7 +476,7 @@ static void run_average_rate(void) {
         return;
     }
     if (piecewise_mode != 0) {
-        if (!read_piecewise_guided(&piecewise, error, sizeof(error))) {
+        if (!read_piecewise_guided(piecewise, error, sizeof(error))) {
             show_parse_error(error);
             return;
         }
@@ -449,21 +489,21 @@ static void run_average_rate(void) {
         return;
     }
     if (piecewise_mode != 0) {
-        status = math_average_rate_piecewise(&piecewise, first_x, second_x,
-                                             &result);
+        status = math_average_rate_piecewise(piecewise, first_x, second_x,
+                                             result);
     } else {
-        status = math_parse_expression(input, &expression, error, sizeof(error));
+        status = math_parse_expression(input, expression, error, sizeof(error));
         if (status == MATH_OK) {
-            status = math_average_rate(&expression, first_x, second_x, &result);
+            status = math_average_rate(expression, first_x, second_x, result);
         }
     }
     if (status != MATH_OK) {
-        show_parse_error(status == MATH_ERR_SYNTAX ? error : result.warning);
+        show_parse_error(status == MATH_ERR_SYNTAX ? error : result->warning);
         return;
     }
     {
-        const ResultField fields[] = {{"Average rate: ", result.answer}};
-        show_result_pages("Average rate", fields, 1, &result.steps);
+        const ResultField fields[] = {{"Average rate: ", result->answer}};
+        show_result_pages("Average rate", fields, 1, &result->steps);
     }
 }
 
@@ -472,10 +512,10 @@ static void run_compose_three(void) {
     char middle_input[MATH_OUTPUT_WIDTH];
     char inner_input[MATH_OUTPUT_WIDTH];
     char error[MATH_ERROR_WIDTH];
-    MathExpr outer;
-    MathExpr middle;
-    MathExpr inner;
-    MathCompositionResult result;
+    MathExpr *outer = &native_workspace.compose_three.outer;
+    MathExpr *middle = &native_workspace.compose_three.middle;
+    MathExpr *inner = &native_workspace.compose_three.inner;
+    MathCompositionResult *result = &native_workspace.compose_three.result;
     MathStatus status;
 
     os_ClrHomeFull();
@@ -484,37 +524,37 @@ static void run_compose_three(void) {
             || !read_expression("Inner h(x)=", inner_input, sizeof(inner_input))) {
         return;
     }
-    status = math_parse_expression(outer_input, &outer, error, sizeof(error));
+    status = math_parse_expression(outer_input, outer, error, sizeof(error));
     if (status == MATH_OK) {
-        status = math_parse_expression(middle_input, &middle, error, sizeof(error));
+        status = math_parse_expression(middle_input, middle, error, sizeof(error));
     }
     if (status == MATH_OK) {
-        status = math_parse_expression(inner_input, &inner, error, sizeof(error));
+        status = math_parse_expression(inner_input, inner, error, sizeof(error));
     }
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
     }
-    status = math_compose_three_functions(&outer, &middle, &inner, &result);
+    status = math_compose_three_functions(outer, middle, inner, result);
     if (status != MATH_OK) {
-        show_parse_error(result.warning);
+        show_parse_error(result->warning);
         return;
     }
     {
         const ResultField fields[] = {
-            {"Expression: ", result.expression},
-            {"Domain: ", result.domain},
-            {"Range: ", result.range}
+            {"Expression: ", result->expression},
+            {"Domain: ", result->domain},
+            {"Range: ", result->range}
         };
         show_result_pages("Three-function composition", fields,
-                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+                          sizeof(fields) / sizeof(fields[0]), &result->steps);
     }
 }
 
 static void run_regression(void) {
     MathFraction x_values[3];
     MathFraction y_values[3];
-    MathRegressionResult result;
+    MathRegressionResult *result = &native_workspace.regression.result;
     MathStatus status;
     uint8_t index;
 
@@ -532,20 +572,20 @@ static void run_regression(void) {
             return;
         }
     }
-    status = math_quadratic_regression(x_values, y_values, 3, &result);
+    status = math_quadratic_regression(x_values, y_values, 3, result);
     if (status != MATH_OK) {
-        show_parse_error(result.warning);
+        show_parse_error(result->warning);
         return;
     }
     {
         const ResultField fields[] = {
-            {"Model: ", result.equation},
-            {"a=", result.coefficient_a},
-            {"b=", result.coefficient_b},
-            {"c=", result.coefficient_c}
+            {"Model: ", result->equation},
+            {"a=", result->coefficient_a},
+            {"b=", result->coefficient_b},
+            {"c=", result->coefficient_c}
         };
         show_result_pages("Quadratic fit", fields,
-                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+                          sizeof(fields) / sizeof(fields[0]), &result->steps);
     }
 }
 
@@ -599,8 +639,8 @@ static void run_more_tools(void) {
 
 static void run_automatic(void) {
     char input[MATH_OUTPUT_WIDTH];
-    MathPiecewise piecewise;
-    MathAnalysis analysis;
+    MathPiecewise *piecewise = &native_workspace.piecewise.piecewise;
+    MathAnalysis *analysis = &native_workspace.piecewise.result;
     char error[MATH_ERROR_WIDTH];
     uint8_t piecewise_mode;
     MathStatus status;
@@ -611,33 +651,33 @@ static void run_automatic(void) {
         return;
     }
     if (piecewise_mode != 0) {
-        if (!read_piecewise_guided(&piecewise, error, sizeof(error))) {
+        if (!read_piecewise_guided(piecewise, error, sizeof(error))) {
             show_parse_error(error);
             return;
         }
-        status = math_analyze_piecewise(&piecewise, &analysis);
+        status = math_analyze_piecewise(piecewise, analysis);
         if (status != MATH_OK) {
             show_parse_error("The piecewise function could not be analyzed.");
             return;
         }
-        show_analysis(&analysis);
+        show_analysis(analysis);
         return;
     }
     if (!read_expression("Input: ", input, sizeof(input))) {
         return;
     }
     if (math_classify_input(input) == MATH_INPUT_PIECEWISE) {
-        status = math_parse_piecewise(input, &piecewise, error, sizeof(error));
+        status = math_parse_piecewise(input, piecewise, error, sizeof(error));
         if (status != MATH_OK) {
             show_parse_error(error);
             return;
         }
-        status = math_analyze_piecewise(&piecewise, &analysis);
+        status = math_analyze_piecewise(piecewise, analysis);
         if (status != MATH_OK) {
             show_parse_error("The piecewise function could not be analyzed.");
             return;
         }
-        show_analysis(&analysis);
+        show_analysis(analysis);
     } else if (math_classify_input(input) == MATH_INPUT_EQUATION) {
         solve_text(input);
     } else {
