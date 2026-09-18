@@ -180,6 +180,17 @@ static void test_transform(void) {
     assert(strcmp(result.formula, "x^2-4*x+7") == 0);
     assert(strcmp(result.vertex, "(2,3)") == 0);
     assert(strcmp(result.y_intercept, "(0,7)") == 0);
+
+    expression = parse_expression("2x+1");
+    spec.horizontal_shift = math_fraction(1, 1);
+    spec.vertical_shift = math_fraction(2, 1);
+    spec.horizontal_scale = math_fraction(2, 1);
+    spec.vertical_scale = math_fraction(3, 1);
+    assert(math_transform_quadratic(&expression, &spec, &result) == MATH_OK);
+    assert(strcmp(result.formula, "3*x+2") == 0);
+    assert(strcmp(result.vertex, "none (not quadratic)") == 0);
+    assert(strcmp(result.x_intercepts, "(-2/3,0)") == 0);
+    assert(strcmp(result.y_intercept, "(0,2)") == 0);
 }
 
 static void test_piecewise_analysis(void) {

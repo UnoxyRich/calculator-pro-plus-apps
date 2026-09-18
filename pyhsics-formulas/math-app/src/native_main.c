@@ -13,7 +13,7 @@ static const char *menu_items[] = {
     "Automatic input",
     "Solve equation",
     "Analyze function",
-    "Transform quadratic",
+    "Transform function",
     "Piecewise analyze",
     "About"
 };
@@ -237,7 +237,7 @@ static void run_transform(void) {
     MathStatus status;
 
     os_ClrHomeFull();
-    if (!read_expression("Quadratic: ", input, sizeof(input))) {
+    if (!read_expression("Function: ", input, sizeof(input))) {
         return;
     }
     status = math_parse_expression(input, &expression, error, sizeof(error));

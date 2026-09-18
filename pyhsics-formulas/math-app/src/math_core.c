@@ -3029,9 +3029,9 @@ MathStatus math_transform_quadratic(const MathExpr *expression,
     memset(out, 0, sizeof(*out));
     steps_reset(&out->steps);
     if (math_expression_to_polynomial(expression, &source_public) != MATH_OK
-            || source_public.degree != 2) {
+            || source_public.degree < 0 || source_public.degree > 2) {
         snprintf(out->warning, sizeof(out->warning),
-                 "Transform output is exact only for quadratic input in this release.");
+                 "Transform output is exact for constant, linear, or quadratic input.");
         out->status = MATH_ERR_UNSUPPORTED;
         return out->status;
     }
@@ -3055,67 +3055,104 @@ MathStatus math_transform_quadratic(const MathExpr *expression,
     a = source.coefficient[2];
     b = source.coefficient[1];
     c = source.coefficient[0];
-    denominator = fraction_multiply(horizontal, horizontal);
     poly_zero(&transformed);
-    transformed.degree = 2;
-    transformed.coefficient[2] = fraction_multiply(vertical,
-        fraction_divide(a, denominator));
-    transformed.coefficient[1] = fraction_multiply(vertical,
-        fraction_add(fraction_divide(fraction_negate(
-            fraction_multiply(math_fraction(2, 1), fraction_multiply(a, h))),
-            denominator), fraction_divide(b, horizontal)));
-    transformed.coefficient[0] = fraction_add(k, fraction_multiply(vertical,
-        fraction_add(fraction_add(fraction_divide(fraction_multiply(a,
-            fraction_multiply(h, h)), denominator),
-            fraction_divide(fraction_negate(fraction_multiply(b, h)), horizontal)), c)));
+    if (source.degree == 2) {
+        denominator = fraction_multiply(horizontal, horizontal);
+        transformed.degree = 2;
+        transformed.coefficient[2] = fraction_multiply(vertical,
+            fraction_divide(a, denominator));
+        transformed.coefficient[1] = fraction_multiply(vertical,
+            fraction_add(fraction_divide(fraction_negate(
+                fraction_multiply(math_fraction(2, 1), fraction_multiply(a, h))),
+                denominator), fraction_divide(b, horizontal)));
+        transformed.coefficient[0] = fraction_add(k, fraction_multiply(vertical,
+            fraction_add(fraction_add(fraction_divide(fraction_multiply(a,
+                fraction_multiply(h, h)), denominator),
+                fraction_divide(fraction_negate(fraction_multiply(b, h)), horizontal)), c)));
+    } else if (source.degree == 1) {
+        a = source.coefficient[1];
+        b = source.coefficient[0];
+        transformed.degree = 1;
+        transformed.coefficient[1] = fraction_multiply(vertical,
+            fraction_divide(a, horizontal));
+        transformed.coefficient[0] = fraction_add(k, fraction_multiply(vertical,
+            fraction_subtract(b, fraction_divide(fraction_multiply(a, h), horizontal))));
+    } else {
+        transformed.degree = 0;
+        transformed.coefficient[0] = fraction_add(k,
+            fraction_multiply(vertical, c));
+    }
     poly_trim(&transformed);
     math_expression_to_text(expression, source_text, sizeof(source_text));
     format_polynomial(&transformed, coefficient_text, sizeof(coefficient_text));
     snprintf(out->formula, sizeof(out->formula), "%s", coefficient_text);
-    vertex_fraction = fraction_divide(fraction_negate(transformed.coefficient[1]),
-                                      fraction_multiply(math_fraction(2, 1),
-                                                        transformed.coefficient[2]));
-    math_fraction_to_text(vertex_fraction, vertex_x, sizeof(vertex_x));
-    math_fraction_to_text(polynomial_evaluate_fraction(&transformed, vertex_fraction),
-                          vertex_y, sizeof(vertex_y));
-    snprintf(out->vertex, sizeof(out->vertex), "(%s,%s)", vertex_x, vertex_y);
-    math_fraction_to_text(transformed.coefficient[0], intercept, sizeof(intercept));
-    snprintf(out->y_intercept, sizeof(out->y_intercept), "(0,%s)", intercept);
-    discriminant = fraction_subtract(
-        fraction_multiply(transformed.coefficient[1], transformed.coefficient[1]),
-        fraction_multiply(math_fraction(4, 1), fraction_multiply(
-            transformed.coefficient[2], transformed.coefficient[0])));
-    if (discriminant.num < 0) {
-        snprintf(out->x_intercepts, sizeof(out->x_intercepts), "none (complex roots)");
-    } else if (discriminant.num == 0) {
-        MathFraction intercept_x = fraction_divide(
+    if (transformed.degree == 2) {
+        vertex_fraction = fraction_divide(
             fraction_negate(transformed.coefficient[1]),
             fraction_multiply(math_fraction(2, 1), transformed.coefficient[2]));
-        math_fraction_to_text(intercept_x, intercept, sizeof(intercept));
-        snprintf(out->x_intercepts, sizeof(out->x_intercepts), "(%s,0)", intercept);
-    } else if (fraction_is_perfect_square(discriminant, &sqrt_discriminant)) {
-        MathFraction first = fraction_divide(
-            fraction_add(fraction_negate(transformed.coefficient[1]), sqrt_discriminant),
-            fraction_multiply(math_fraction(2, 1), transformed.coefficient[2]));
-        MathFraction second = fraction_divide(
-            fraction_subtract(fraction_negate(transformed.coefficient[1]), sqrt_discriminant),
-            fraction_multiply(math_fraction(2, 1), transformed.coefficient[2]));
-        char first_text[64];
-        char second_text[64];
-        if (math_fraction_compare(first, second) > 0) {
-            MathFraction swap = first;
-            first = second;
-            second = swap;
-        }
-        math_fraction_to_text(first, first_text, sizeof(first_text));
-        math_fraction_to_text(second, second_text, sizeof(second_text));
-        snprintf(out->x_intercepts, sizeof(out->x_intercepts),
-                 "(%s,0),(%s,0)", first_text, second_text);
+        math_fraction_to_text(vertex_fraction, vertex_x, sizeof(vertex_x));
+        math_fraction_to_text(polynomial_evaluate_fraction(&transformed,
+                                                           vertex_fraction),
+                              vertex_y, sizeof(vertex_y));
+        snprintf(out->vertex, sizeof(out->vertex), "(%s,%s)", vertex_x, vertex_y);
     } else {
-        char radical[96];
-        format_square_root(discriminant, radical, sizeof(radical));
+        snprintf(out->vertex, sizeof(out->vertex), "none (not quadratic)");
+    }
+    math_fraction_to_text(transformed.coefficient[0], intercept, sizeof(intercept));
+    snprintf(out->y_intercept, sizeof(out->y_intercept), "(0,%s)", intercept);
+    if (transformed.degree == 0) {
         snprintf(out->x_intercepts, sizeof(out->x_intercepts),
-                 "(-b+sqrt(D))/(2a),(-b-sqrt(D))/(2a), D=%s", radical);
+                 math_fraction_is_zero(transformed.coefficient[0])
+                     ? "all real x" : "none");
+    } else if (transformed.degree == 1) {
+        if (math_fraction_is_zero(transformed.coefficient[1])) {
+            snprintf(out->x_intercepts, sizeof(out->x_intercepts),
+                     math_fraction_is_zero(transformed.coefficient[0])
+                         ? "all real x" : "none");
+        } else {
+            MathFraction intercept_x = fraction_divide(
+                fraction_negate(transformed.coefficient[0]),
+                transformed.coefficient[1]);
+            math_fraction_to_text(intercept_x, intercept, sizeof(intercept));
+            snprintf(out->x_intercepts, sizeof(out->x_intercepts), "(%s,0)", intercept);
+        }
+    } else {
+        discriminant = fraction_subtract(
+            fraction_multiply(transformed.coefficient[1], transformed.coefficient[1]),
+            fraction_multiply(math_fraction(4, 1), fraction_multiply(
+                transformed.coefficient[2], transformed.coefficient[0])));
+        if (discriminant.num < 0) {
+            snprintf(out->x_intercepts, sizeof(out->x_intercepts), "none (complex roots)");
+        } else if (discriminant.num == 0) {
+            MathFraction intercept_x = fraction_divide(
+                fraction_negate(transformed.coefficient[1]),
+                fraction_multiply(math_fraction(2, 1), transformed.coefficient[2]));
+            math_fraction_to_text(intercept_x, intercept, sizeof(intercept));
+            snprintf(out->x_intercepts, sizeof(out->x_intercepts), "(%s,0)", intercept);
+        } else if (fraction_is_perfect_square(discriminant, &sqrt_discriminant)) {
+            MathFraction first = fraction_divide(
+                fraction_add(fraction_negate(transformed.coefficient[1]), sqrt_discriminant),
+                fraction_multiply(math_fraction(2, 1), transformed.coefficient[2]));
+            MathFraction second = fraction_divide(
+                fraction_subtract(fraction_negate(transformed.coefficient[1]), sqrt_discriminant),
+                fraction_multiply(math_fraction(2, 1), transformed.coefficient[2]));
+            char first_text[64];
+            char second_text[64];
+            if (math_fraction_compare(first, second) > 0) {
+                MathFraction swap = first;
+                first = second;
+                second = swap;
+            }
+            math_fraction_to_text(first, first_text, sizeof(first_text));
+            math_fraction_to_text(second, second_text, sizeof(second_text));
+            snprintf(out->x_intercepts, sizeof(out->x_intercepts),
+                     "(%s,0),(%s,0)", first_text, second_text);
+        } else {
+            char radical[96];
+            format_square_root(discriminant, radical, sizeof(radical));
+            snprintf(out->x_intercepts, sizeof(out->x_intercepts),
+                     "(-b+sqrt(D))/(2a),(-b-sqrt(D))/(2a), D=%s", radical);
+        }
     }
     out->status = MATH_OK;
     step_add(&out->steps, "1. Start with f(x)=%s.", source_text);

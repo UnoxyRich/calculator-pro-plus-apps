@@ -26,6 +26,12 @@ DEFAULT_HEADLESS = Path(
 DEFAULT_AUTOTESTER = DEFAULT_HEADLESS.with_name("autotester")
 
 
+def app_files() -> list[Path]:
+    """Return the launcher and any CEdev-generated AppVar sidecars."""
+    sidecars = sorted(APP.parent.glob(APP.name + ".*.8xv"))
+    return [APP, *[path for path in sidecars if path.is_file()]]
+
+
 def drain_stderr(stream) -> None:
     for line in stream:
         sys.stderr.write("[CEmu] " + line)
@@ -65,9 +71,10 @@ class HeadlessSession:
 
 
 def run_autotester(autotester: Path, firmware: Path, output: Path) -> None:
+    files = app_files()
     config = {
         "rom": str(firmware),
-        "transfer_files": [str(APP)],
+        "transfer_files": [str(path) for path in files],
         "target": {"name": "MATHAPP", "isASM": True},
         "delay_after_key": 100,
         "delay_after_step": 120,
@@ -124,7 +131,8 @@ def main() -> int:
     if not firmware.is_file():
         print(f"Firmware image does not exist: {firmware}", file=sys.stderr)
         return 2
-    if not APP.is_file():
+    files = app_files()
+    if not files or not APP.is_file():
         print(f"Native app is missing: {APP}; run make ce first.", file=sys.stderr)
         return 2
     if not args.headless.is_file():
@@ -139,7 +147,8 @@ def main() -> int:
     try:
         session.command("run 10000")
         session.command(f"screenshot {output / 'boot.bmp'}")
-        session.command(f"send-file auto {APP}")
+        for path in files:
+            session.command(f"send-file auto {path}")
         session.command("run 5000")
         session.command(f"screenshot {output / 'after-transfer.bmp'}")
         session.command(f"save-state {output / 'after-transfer.ce'}")

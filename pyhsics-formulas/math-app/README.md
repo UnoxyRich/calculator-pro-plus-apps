@@ -11,8 +11,8 @@ The current vertical slice includes:
 - exact rational and simplified radical answers, including complex roots;
 - recorded solving steps and original-denominator checks;
 - exact domain, range, parity, and interval analysis for supported functions;
-- quadratic transformation with exact vertex, intercept, dilation, translation,
-  and reflection output; and
+- constant, linear, and quadratic transformation with exact formula, intercept,
+  dilation, translation, and reflection output (quadratics also get vertices); and
 - piecewise branch analysis with exact bounds and overlap validation; and
 - a calculator menu with input, answer, steps, and honest unsupported-case messages.
 
@@ -48,8 +48,10 @@ Install the CE C/C++ Toolchain and make its `bin` directory available on
 make ce
 ```
 
-The CE Toolchain produces `bin/MATHAPP.8xp`. The native front end uses the TI
-OS string-input and keypad routines, while `src/math_core.c` is shared with
+The CE Toolchain produces `bin/MATHAPP.8xp`; if the program exceeds one CE
+AppVar, it also produces `bin/MATHAPP.8xp.*.8xv` sidecar files. Transfer the
+launcher and every generated sidecar together. The native front end uses the
+TI OS string-input and keypad routines, while `src/math_core.c` is shared with
 the host test executable.
 
 ## CEmu emulator test
@@ -61,7 +63,8 @@ bundle or download TI firmware. After obtaining a ROM, run:
 python3 tools/cemu_suite.py --rom /path/to/your/CE.rom
 ```
 
-The suite transfers the built `.8xp`, saves CEmu screenshots and a state, and
+The suite transfers the built `.8xp` plus any generated `.8xv` sidecars, saves
+CEmu screenshots and a state, and
 uses CEmu's TI-OS launch path to verify the program starts. Open
 `tools/emulator_preview.html` to see the LCD over the downloaded calculator
 body photograph. A saved `.ce` state can also be passed with `--image` for the
