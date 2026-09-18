@@ -80,9 +80,23 @@ def run_autotester(autotester: Path, firmware: Path, output: Path) -> None:
         "delay_after_step": 120,
         "sequence": [
             "action|launch",
+            # Open and cancel each interactive menu entry.  This verifies the
+            # native screen loop and every input form without inventing math
+            # answers when the test is running against a fresh ROM.
+            "key|enter",
+            "key|clear",
             "key|down",
+            "key|enter",
+            "key|clear",
             "key|down",
+            "key|enter",
+            "key|clear",
             "key|down",
+            "key|enter",
+            "key|clear",
+            "key|down",
+            "key|enter",
+            "key|clear",
             "key|down",
             "key|enter",
             "key|clear",
