@@ -184,7 +184,7 @@ static void show_solution(const MathSolveResult *solution) {
 static int read_expression(const char *prompt, char *buffer, size_t capacity) {
     char normalized[MATH_OUTPUT_WIDTH];
 
-    if (capacity > sizeof(normalized)) {
+    if (buffer == NULL || capacity == 0 || capacity > sizeof(normalized)) {
         return 0;
     }
     buffer[0] = '\0';
