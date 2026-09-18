@@ -551,10 +551,13 @@ static void test_special_equations(void) {
 
 static void test_radical_formatting_and_edge_cases(void) {
     MathSolveResult result;
+    MathEquation scaled_radical = parse_equation("x^2-72=0");
     MathEquation rational_radical = parse_equation("x^2-1/2=0");
     MathEquation complex_rational = parse_equation("x^2+1/2=0");
     MathEquation repeated_root = parse_equation("x^2-2x+1=0");
 
+    assert(math_solve_equation(&scaled_radical, &result) == MATH_OK);
+    assert(strcmp(result.answer, "x=6*sqrt(2) or x=-6*sqrt(2)") == 0);
     assert(math_solve_equation(&rational_radical, &result) == MATH_OK);
     assert(strstr(result.answer, "sqrt(2)/2") != NULL);
     assert(math_solve_equation(&complex_rational, &result) == MATH_OK);

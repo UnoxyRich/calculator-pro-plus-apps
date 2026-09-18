@@ -80,13 +80,21 @@ void os_GetStringInput(const char *prompt, char *buffer, size_t capacity) {
 uint16_t os_GetKey(void) {
     if (screen_has("Any: next  Enter: steps") && !result_prompt_consumed) {
         result_prompt_consumed = 1;
-        if (screen_has("Analysis") && !screen_has("Concave up: ")) {
+        if (screen_has("Analysis") && !screen_has("Concave down: ")) {
             return sk_Down;
         }
-        if (screen_has("Transform result") && !screen_has("x-int: ")) {
+        if (screen_has("Transform result") && !screen_has("y-int: ")) {
             return sk_Down;
         }
         if (screen_has("Equation result") && !screen_has("Answer: ")) {
+            return sk_Down;
+        }
+        if ((screen_has("Composition")
+             || screen_has("Three-function composition"))
+                && !screen_has("Range: ")) {
+            return sk_Down;
+        }
+        if (screen_has("Quadratic fit") && !screen_has("c=")) {
             return sk_Down;
         }
         return sk_Enter;
@@ -226,8 +234,11 @@ int main(void) {
     assert(strstr(history, "x=2") != NULL);
     assert(strstr(history, "Vertex: ") != NULL);
     assert(strstr(history, "x-int: ") != NULL);
+    assert(strstr(history, "y-int: ") != NULL);
     assert(strstr(history, "Concave up: ") != NULL);
+    assert(strstr(history, "Concave down: ") != NULL);
     assert(strstr(history, "Composition") != NULL);
+    assert(strstr(history, "Range: ") != NULL);
     assert(strstr(history, "Three-function composition") != NULL);
     assert(strstr(history, "Average rate: \n-1") != NULL);
     assert(strstr(history, "Quadratic fit") != NULL);
