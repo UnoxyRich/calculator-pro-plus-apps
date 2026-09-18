@@ -56,6 +56,13 @@ and walks every menu tool, result page, and steps page:
 make test-native-ui
 ```
 
+On macOS, the Clang static analyzer can also check the math core and native
+front end:
+
+```sh
+make test-static
+```
+
 ## Native calculator build
 
 Install the CE C/C++ Toolchain and make its `bin` directory available on
