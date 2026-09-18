@@ -884,23 +884,36 @@ static MathStatus parse_piecewise_condition(const char *input, size_t start,
             return MATH_ERR_SYNTAX;
         }
         variable_index = (size_t) (variable - normalized);
-        if (variable_index == 0 || variable_index + 1 >= normalized_length
-                || (normalized[variable_index - 1] != '<'
-                    && !(variable_index >= 2
-                         && normalized[variable_index - 2] == '<'
-                         && normalized[variable_index - 1] == '='))
-                || normalized[variable_index + 1] != '<') {
+        if (variable <= normalized
+                || variable + 1 >= normalized + normalized_length) {
             if (error != NULL && error_capacity > 0) {
                 snprintf(error, error_capacity,
                          "Use a bounded condition such as -2<x<0 or 0<=x<=2");
             }
             return MATH_ERR_SYNTAX;
         }
-        left_operator_length = variable_index >= 2
-            && normalized[variable_index - 2] == '<'
-            && normalized[variable_index - 1] == '=' ? 2 : 1;
-        right_operator_length = variable_index + 2 < normalized_length
-            && normalized[variable_index + 2] == '=' ? 2 : 1;
+        if (variable[-1] != '<'
+                && (variable < normalized + 2
+                    || variable[-2] != '<'
+                    || variable[-1] != '=')) {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity,
+                         "Use a bounded condition such as -2<x<0 or 0<=x<=2");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        if (variable[1] != '<') {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity,
+                         "Use a bounded condition such as -2<x<0 or 0<=x<=2");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        left_operator_length = variable >= normalized + 2
+            && variable[-2] == '<'
+            && variable[-1] == '=' ? 2 : 1;
+        right_operator_length = variable + 2 < normalized + normalized_length
+            && variable[2] == '=' ? 2 : 1;
         lower_length = variable_index - left_operator_length;
         upper_start = variable_index + 1 + right_operator_length;
         if (lower_length == 0 || upper_start >= normalized_length
@@ -2430,7 +2443,10 @@ static int format_exclusion_domain(const MathPoly *denominator,
     }
     root_one = fraction_divide(fraction_add(fraction_negate(b), root_one),
                                fraction_multiply(math_fraction(2, 1), a));
-    fraction_is_perfect_square(discriminant, &root_two);
+    if (!fraction_is_perfect_square(discriminant, &root_two)) {
+        return snprintf(out, capacity, "Real values except denominator zeros") >= 0
+            && strlen(out) < capacity;
+    }
     root_two = fraction_divide(fraction_subtract(fraction_negate(b), root_two),
                                fraction_multiply(math_fraction(2, 1), a));
     if (math_fraction_compare(root_one, root_two) > 0) {
@@ -3852,6 +3868,10 @@ static int absolute_pair_matches(const MathAbsoluteTerm *left,
     int used[2] = {0, 0};
     int right_index;
 
+    if (left == NULL || right == NULL || count < 0 || count > 2) {
+        return 0;
+    }
+
     for (right_index = 0; right_index < count; right_index++) {
         int left_index;
         int expected_multiplier = right[right_index].multiplier
@@ -4688,7 +4708,7 @@ static int analyze_sqrt_rational_square(const MathExpr *expression,
         snprintf(out->concave_up, sizeof(out->concave_up), "none");
         snprintf(out->concave_down, sizeof(out->concave_down), "none");
     } else {
-        MathFraction numerator_root_value = math_fraction_zero();
+        MathFraction numerator_root_value;
         breakpoint_count = 1;
         breakpoints[0] = fraction_divide(
             fraction_negate(denominator_intercept), denominator_slope);
