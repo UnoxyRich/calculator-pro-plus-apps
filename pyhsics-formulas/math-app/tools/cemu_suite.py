@@ -228,6 +228,9 @@ def main() -> int:
             "CEmu boot/transfer checks passed from the saved image; use --rom for "
             "the separate TI-OS program-launch check."
         )
+        print(f"CEmu boot and transfer passed. Artifacts: {output}")
+        print("Open tools/emulator_preview.html to view the calculator-shaped screen preview.")
+        return 0
     else:
         print(f"Warning: autotester binary is missing: {args.autotester}", file=sys.stderr)
         return 2
