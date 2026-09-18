@@ -71,6 +71,9 @@ static void test_rational_restrictions(void) {
 static void test_function_analysis(void) {
     MathAnalysis analysis;
     MathExpr even_function = parse_expression("x^3/x");
+    MathExpr plain_even = parse_expression("x^2+1");
+    MathExpr plain_odd = parse_expression("x^3");
+    MathExpr plain_neither = parse_expression("x^2+x");
     MathExpr radical = parse_expression("sqrt(x^2)");
     MathExpr quadratic = parse_expression("x^2-4x+1");
 
@@ -84,6 +87,38 @@ static void test_function_analysis(void) {
     assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);
     assert(strcmp(analysis.concave_up, "(-infinity,infinity)") == 0);
+    assert(math_analyze_function(&plain_even, &analysis) == MATH_OK);
+    assert(strcmp(analysis.parity, "Even") == 0);
+    assert(math_analyze_function(&plain_odd, &analysis) == MATH_OK);
+    assert(strcmp(analysis.parity, "Odd") == 0);
+    assert(math_analyze_function(&plain_neither, &analysis) == MATH_OK);
+    assert(strcmp(analysis.parity, "Neither") == 0);
+}
+
+static void test_special_interval_analysis(void) {
+    MathAnalysis analysis;
+    MathExpr absolute = parse_expression("abs(x-2)");
+    MathExpr radical = parse_expression("sqrt(x+1)");
+    MathExpr rational = parse_expression("1/(x-2)");
+
+    assert(math_analyze_function(&absolute, &analysis) == MATH_OK);
+    assert(strcmp(analysis.parity, "Neither") == 0);
+    assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
+    assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);
+    assert(strcmp(analysis.concave_up, "none") == 0);
+    assert(strcmp(analysis.concave_down, "none") == 0);
+
+    assert(math_analyze_function(&radical, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "[-1,infinity)") == 0);
+    assert(strcmp(analysis.increasing, "(-1,infinity)") == 0);
+    assert(strcmp(analysis.decreasing, "none") == 0);
+    assert(strcmp(analysis.concave_down, "(-1,infinity)") == 0);
+
+    assert(math_analyze_function(&rational, &analysis) == MATH_OK);
+    assert(strcmp(analysis.increasing, "none") == 0);
+    assert(strcmp(analysis.decreasing, "(-infinity,2) U (2,infinity)") == 0);
+    assert(strcmp(analysis.concave_up, "(2,infinity)") == 0);
+    assert(strcmp(analysis.concave_down, "(-infinity,2)") == 0);
 }
 
 static void test_transform(void) {
@@ -102,10 +137,20 @@ static void test_transform(void) {
     assert(strcmp(result.vertex, "(3/4,-25/8)") == 0);
     assert(strcmp(result.x_intercepts, "(-1/2,0),(2,0)") == 0);
     assert(strcmp(result.y_intercept, "(0,-2)") == 0);
+
+    spec.horizontal_shift = math_fraction(0, 1);
+    spec.vertical_shift = math_fraction(0, 1);
+    spec.horizontal_scale = math_fraction(1, 1);
+    spec.vertical_scale = math_fraction(1, 1);
+    spec.reflect_x_axis = 1;
+    spec.reflect_y_axis = 0;
+    assert(math_transform_quadratic(&expression, &spec, &result) == MATH_OK);
+    assert(strcmp(result.formula, "-x^2+3*x+4") == 0);
 }
 
 static void test_piecewise_analysis(void) {
     MathPiecewise piecewise;
+    MathPiecewise condition_piecewise;
     MathAnalysis analysis;
     char error[MATH_ERROR_WIDTH];
     MathStatus status = math_parse_piecewise(
@@ -121,6 +166,17 @@ static void test_piecewise_analysis(void) {
     assert(strcmp(analysis.parity, "Even") == 0);
     assert(strcmp(analysis.increasing, "(-2,0)") == 0);
     assert(strcmp(analysis.decreasing, "(0,2)") == 0);
+    assert(math_parse_piecewise(
+               "piecewise(x|-2<x<0;-x|0<x<2)",
+               &condition_piecewise, error, sizeof(error)) == MATH_OK);
+    assert(math_analyze_piecewise(&condition_piecewise, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-2,0) U (0,2)") == 0);
+    assert(strcmp(analysis.parity, "Even") == 0);
+    assert(math_parse_piecewise(
+               "piecewise(x|-2<=x<0;-x|0<=x<2)",
+               &condition_piecewise, error, sizeof(error)) == MATH_OK);
+    assert(math_analyze_piecewise(&condition_piecewise, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "[-2,0) U [0,2)") == 0);
 }
 
 static void test_special_equations(void) {
@@ -183,6 +239,7 @@ int main(void) {
     test_complex_quadratic();
     test_rational_restrictions();
     test_function_analysis();
+    test_special_interval_analysis();
     test_transform();
     test_piecewise_analysis();
     test_special_equations();

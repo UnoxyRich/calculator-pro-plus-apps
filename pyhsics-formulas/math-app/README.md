@@ -5,21 +5,25 @@ implicit multiplication, fractions, powers, `sqrt(x)`, and `abs(x)`.
 
 The current vertical slice includes:
 
+- one automatic input screen that routes equations, functions, and `piecewise(...)`
+  input to the correct tool;
 - automatic linear, quadratic, and rational-polynomial equation solving;
 - exact rational and simplified radical answers, including complex roots;
 - recorded solving steps and original-denominator checks;
 - exact domain, range, parity, and interval analysis for supported functions;
-- quadratic transformation with exact vertex and intercept output; and
+- quadratic transformation with exact vertex, intercept, dilation, translation,
+  and reflection output; and
 - piecewise branch analysis with exact bounds and overlap validation; and
 - a calculator menu with input, answer, steps, and honest unsupported-case messages.
 
 The result viewer shows long values and steps one page at a time so exact
 intervals, radicals, and recorded operations remain readable on the CE LCD.
 
-Polynomial interval analysis currently covers degree 0 through 2. The parser
-also recognizes selected radical and absolute-value expressions for domain and
-range work. Unsupported symbolic cases are reported instead of being replaced
-with decimal guesses.
+Polynomial interval analysis currently covers degree 0 through 2. Exact
+interval rules also cover affine absolute values, linear square roots, and
+linear-over-linear rational functions. The parser recognizes selected radical
+and absolute-value expressions for domain and range work. Unsupported symbolic
+cases are reported instead of being replaced with decimal guesses.
 
 ## Host verification
 
@@ -29,9 +33,11 @@ The default target runs the core tests on macOS or another C99 compiler:
 make
 ```
 
-The tests cover implicit multiplication, complex quadratic roots, rational
-holes, forbidden candidates, parity, interval analysis, radical analysis, and
-the planned quadratic scaling example.
+The tests cover automatic-style equation/function parsing, implicit
+multiplication, exact fractions and radicals, complex quadratic roots,
+rational holes and forbidden candidates, even/odd/neither parity, normal and
+piecewise interval analysis, radical and absolute-value analysis, reflections,
+and the quadratic scaling example.
 
 ## Native calculator build
 
@@ -78,13 +84,15 @@ independently.
 
 ## Piecewise input
 
-The native menu accepts up to four ordered branches in this form:
+The native menu accepts up to four ordered branches in either of these forms:
 
 ```text
 piecewise(x|(-2,0);-x|(0,2))
+piecewise(x|-2<x<0;-x|0<x<2)
 ```
 
-Each branch is `expression|interval`, and interval endpoints may be open or
-closed, for example `(-2,0]` or `[0,4)`. Branches must not overlap. The app
-combines branch domains, exact polynomial ranges, slope intervals, concavity,
-and parity when the reflected branches can be proved symbolically.
+Each branch is `expression|interval` or `expression|lower<x<upper`; `<=` marks
+a closed endpoint. Interval endpoints may also be written explicitly, for
+example `(-2,0]` or `[0,4)`. Branches must not overlap. The app combines
+branch domains, exact polynomial ranges, slope intervals, concavity, and
+parity when the reflected branches can be proved symbolically.

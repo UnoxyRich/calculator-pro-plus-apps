@@ -622,6 +622,131 @@ static size_t find_top_level_character(const char *input, size_t start,
     return end;
 }
 
+static MathStatus parse_piecewise_condition(const char *input, size_t start,
+                                            size_t end, MathFraction *lower,
+                                            MathFraction *upper,
+                                            uint8_t *lower_closed,
+                                            uint8_t *upper_closed,
+                                            char *error, size_t error_capacity) {
+    char normalized[MATH_ERROR_WIDTH];
+    size_t normalized_length = 0;
+    size_t index;
+    size_t comma;
+
+    trim_span(input, &start, &end);
+    if (end - start >= 5
+            && (input[start] == '(' || input[start] == '[')
+            && (input[end - 1] == ')' || input[end - 1] == ']')) {
+        comma = find_top_level_character(input, start + 1, end - 1, ',');
+        if (comma == end - 1) {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity, "Piecewise bounds need a comma");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        {
+            size_t lower_start = start + 1;
+            size_t lower_end = comma;
+            size_t upper_start = comma + 1;
+            size_t upper_end = end - 1;
+            trim_span(input, &lower_start, &lower_end);
+            trim_span(input, &upper_start, &upper_end);
+            if (!math_fraction_parse(input + lower_start, lower_end - lower_start,
+                                     lower)
+                    || !math_fraction_parse(input + upper_start,
+                                            upper_end - upper_start, upper)
+                    || math_fraction_compare(*lower, *upper) >= 0) {
+                if (error != NULL && error_capacity > 0) {
+                    snprintf(error, error_capacity,
+                             "Piecewise bounds must be exact and increasing");
+                }
+                return MATH_ERR_SYNTAX;
+            }
+        }
+        *lower_closed = input[start] == '[';
+        *upper_closed = input[end - 1] == ']';
+        return MATH_OK;
+    }
+
+    for (index = start; index < end; index++) {
+        if (!isspace((unsigned char) input[index])) {
+            if (normalized_length + 1 >= sizeof(normalized)) {
+                if (error != NULL && error_capacity > 0) {
+                    snprintf(error, error_capacity, "Piecewise condition is too long");
+                }
+                return MATH_ERR_LIMIT;
+            }
+            normalized[normalized_length++] = input[index];
+        }
+    }
+    normalized[normalized_length] = '\0';
+    {
+        char *variable = strchr(normalized, 'x');
+        size_t variable_index;
+        size_t left_operator_length;
+        size_t right_operator_length;
+        size_t lower_length;
+        size_t upper_start;
+        char lower_text[MATH_ERROR_WIDTH];
+        char upper_text[MATH_ERROR_WIDTH];
+
+        if (variable == NULL || strchr(variable + 1, 'x') != NULL) {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity,
+                         "Use an interval or a bounded condition such as -2<x<0");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        variable_index = (size_t) (variable - normalized);
+        if (variable_index == 0 || variable_index + 1 >= normalized_length
+                || (normalized[variable_index - 1] != '<'
+                    && !(variable_index >= 2
+                         && normalized[variable_index - 2] == '<'
+                         && normalized[variable_index - 1] == '='))
+                || normalized[variable_index + 1] != '<') {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity,
+                         "Use a bounded condition such as -2<x<0 or 0<=x<=2");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        left_operator_length = variable_index >= 2
+            && normalized[variable_index - 2] == '<'
+            && normalized[variable_index - 1] == '=' ? 2 : 1;
+        right_operator_length = variable_index + 2 < normalized_length
+            && normalized[variable_index + 2] == '=' ? 2 : 1;
+        lower_length = variable_index - left_operator_length;
+        upper_start = variable_index + 1 + right_operator_length;
+        if (lower_length == 0 || upper_start >= normalized_length
+                || lower_length >= sizeof(lower_text)
+                || normalized_length - upper_start >= sizeof(upper_text)) {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity,
+                         "Piecewise conditions need two exact bounds");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        memcpy(lower_text, normalized, lower_length);
+        lower_text[lower_length] = '\0';
+        memcpy(upper_text, normalized + upper_start,
+               normalized_length - upper_start);
+        upper_text[normalized_length - upper_start] = '\0';
+        if (!math_fraction_parse(lower_text, lower_length, lower)
+                || !math_fraction_parse(upper_text,
+                                        normalized_length - upper_start, upper)
+                || math_fraction_compare(*lower, *upper) >= 0) {
+            if (error != NULL && error_capacity > 0) {
+                snprintf(error, error_capacity,
+                         "Piecewise bounds must be exact and increasing");
+            }
+            return MATH_ERR_SYNTAX;
+        }
+        *lower_closed = left_operator_length == 2;
+        *upper_closed = right_operator_length == 2;
+    }
+    return MATH_OK;
+}
+
 MathStatus math_parse_piecewise(const char *input, MathPiecewise *out,
                                 char *error, size_t error_capacity) {
     size_t length;
@@ -654,9 +779,10 @@ MathStatus math_parse_piecewise(const char *input, MathPiecewise *out,
         size_t expression_end;
         size_t condition_start;
         size_t condition_end;
-        size_t comma;
         MathFraction lower;
         MathFraction upper;
+        uint8_t lower_closed;
+        uint8_t upper_closed;
         char expression_text[MATH_OUTPUT_WIDTH];
         size_t expression_length;
         MathStatus status;
@@ -682,38 +808,11 @@ MathStatus math_parse_piecewise(const char *input, MathPiecewise *out,
         condition_end = branch_end;
         trim_span(input, &expression_start, &expression_end);
         trim_span(input, &condition_start, &condition_end);
-        if (condition_end - condition_start < 5
-                || (input[condition_start] != '(' && input[condition_start] != '[')
-                || (input[condition_end - 1] != ')' && input[condition_end - 1] != ']')) {
-            if (error != NULL && error_capacity > 0) {
-                snprintf(error, error_capacity, "Use interval bounds such as (-2,0] or [0,4)");
-            }
-            return MATH_ERR_SYNTAX;
-        }
-        comma = find_top_level_character(input, condition_start + 1,
-                                          condition_end - 1, ',');
-        if (comma == condition_end - 1) {
-            if (error != NULL && error_capacity > 0) {
-                snprintf(error, error_capacity, "Piecewise bounds need a comma");
-            }
-            return MATH_ERR_SYNTAX;
-        }
-        {
-            size_t lower_start = condition_start + 1;
-            size_t lower_end = comma;
-            size_t upper_start = comma + 1;
-            size_t upper_end = condition_end - 1;
-            trim_span(input, &lower_start, &lower_end);
-            trim_span(input, &upper_start, &upper_end);
-            if (!math_fraction_parse(input + lower_start, lower_end - lower_start, &lower)
-                    || !math_fraction_parse(input + upper_start, upper_end - upper_start,
-                                            &upper)
-                    || math_fraction_compare(lower, upper) >= 0) {
-                if (error != NULL && error_capacity > 0) {
-                    snprintf(error, error_capacity, "Piecewise bounds must be exact and increasing");
-                }
-                return MATH_ERR_SYNTAX;
-            }
+        status = parse_piecewise_condition(input, condition_start, condition_end,
+                                           &lower, &upper, &lower_closed,
+                                           &upper_closed, error, error_capacity);
+        if (status != MATH_OK) {
+            return status;
         }
         expression_length = expression_end - expression_start;
         if (expression_length == 0 || expression_length >= sizeof(expression_text)) {
@@ -732,8 +831,8 @@ MathStatus math_parse_piecewise(const char *input, MathPiecewise *out,
         }
         out->branch[branch_index].lower = lower;
         out->branch[branch_index].upper = upper;
-        out->branch[branch_index].lower_closed = input[condition_start] == '[';
-        out->branch[branch_index].upper_closed = input[condition_end - 1] == ']';
+        out->branch[branch_index].lower_closed = lower_closed;
+        out->branch[branch_index].upper_closed = upper_closed;
         if (branch_index > 0) {
             MathPiecewiseBranch *previous = &out->branch[branch_index - 1];
             MathPiecewiseBranch *current = &out->branch[branch_index];
@@ -2302,8 +2401,19 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 snprintf(out->range, sizeof(out->range),
                          "Exact range not supported for this absolute-value expression");
             }
-            snprintf(out->parity, sizeof(out->parity),
-                     "Not determined exactly for this absolute-value expression");
+            if (absolute_poly_ok && absolute_poly.degree == 0) {
+                snprintf(out->parity, sizeof(out->parity),
+                         math_fraction_is_zero(absolute_poly.coefficient[0])
+                             ? "Both" : "Even");
+            } else if (absolute_poly_ok && absolute_poly.degree == 1
+                    && math_fraction_is_zero(absolute_poly.coefficient[0])) {
+                snprintf(out->parity, sizeof(out->parity), "Even");
+            } else if (absolute_poly_ok && absolute_poly.degree <= 1) {
+                snprintf(out->parity, sizeof(out->parity), "Neither");
+            } else {
+                snprintf(out->parity, sizeof(out->parity),
+                         "Not determined exactly for this absolute-value expression");
+            }
         } else {
             snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
             snprintf(out->range, sizeof(out->range),
@@ -2316,49 +2426,192 @@ MathStatus math_analyze_function(const MathExpr *expression,
         step_add(&out->steps, "2. Preserve real-domain restrictions from radicals or absolute values.");
     }
 
-    if (math_expression_to_polynomial(expression, &polynomial) == MATH_OK
-            && polynomial.degree <= 2) {
-        char vertex[64];
-        if (polynomial.degree == 0) {
-            format_linear_intervals(math_fraction_zero(), out->increasing,
-                                    out->decreasing, out->concave_up,
-                                    out->concave_down, sizeof(out->increasing));
-        } else if (polynomial.degree == 1) {
-            format_linear_intervals(polynomial.coefficient[1], out->increasing,
-                                    out->decreasing, out->concave_up,
-                                    out->concave_down, sizeof(out->increasing));
-        } else {
-            MathFraction vertex_x = fraction_divide(fraction_negate(polynomial.coefficient[1]),
-                                                     fraction_multiply(math_fraction(2, 1),
-                                                                       polynomial.coefficient[2]));
-            math_fraction_to_text(vertex_x, vertex, sizeof(vertex));
-            if (polynomial.coefficient[2].num > 0) {
-                snprintf(out->increasing, sizeof(out->increasing), "(%s,infinity)", vertex);
-                snprintf(out->decreasing, sizeof(out->decreasing), "(-infinity,%s)", vertex);
-                snprintf(out->concave_up, sizeof(out->concave_up),
-                         "(-infinity,infinity)");
+    {
+        int intervals_handled = 0;
+        MathPoly special_poly;
+        int special_poly_ok;
+
+        if (expression->nodes[expression->root].type == MATH_NODE_ABS) {
+            special_poly_ok = polynomial_from_node(expression,
+                expression->nodes[expression->root].left, &special_poly);
+            if (special_poly_ok && special_poly.degree == 1
+                    && !math_fraction_is_zero(special_poly.coefficient[1])) {
+                MathFraction vertex_x = fraction_divide(
+                    fraction_negate(special_poly.coefficient[0]),
+                    special_poly.coefficient[1]);
+                char vertex[64];
+                math_fraction_to_text(vertex_x, vertex, sizeof(vertex));
+                if (special_poly.coefficient[1].num > 0) {
+                    snprintf(out->increasing, sizeof(out->increasing),
+                             "(%s,infinity)", vertex);
+                    snprintf(out->decreasing, sizeof(out->decreasing),
+                             "(-infinity,%s)", vertex);
+                } else {
+                    snprintf(out->increasing, sizeof(out->increasing),
+                             "(-infinity,%s)", vertex);
+                    snprintf(out->decreasing, sizeof(out->decreasing),
+                             "(%s,infinity)", vertex);
+                }
+                snprintf(out->concave_up, sizeof(out->concave_up), "none");
                 snprintf(out->concave_down, sizeof(out->concave_down), "none");
-            } else {
-                snprintf(out->increasing, sizeof(out->increasing), "(-infinity,%s)", vertex);
-                snprintf(out->decreasing, sizeof(out->decreasing), "(%s,infinity)", vertex);
+                step_add(&out->steps,
+                         "4. Split abs(linear) at x=%s; slope gives the two intervals.",
+                         vertex);
+                intervals_handled = 1;
+            }
+        } else if (expression->nodes[expression->root].type == MATH_NODE_SQRT) {
+            special_poly_ok = polynomial_from_node(expression,
+                expression->nodes[expression->root].left, &special_poly);
+            if (special_poly_ok && special_poly.degree == 1
+                    && !math_fraction_is_zero(special_poly.coefficient[1])) {
+                MathFraction boundary = fraction_divide(
+                    fraction_negate(special_poly.coefficient[0]),
+                    special_poly.coefficient[1]);
+                char boundary_text[64];
+                math_fraction_to_text(boundary, boundary_text,
+                                      sizeof(boundary_text));
+                if (special_poly.coefficient[1].num > 0) {
+                    snprintf(out->increasing, sizeof(out->increasing),
+                             "(%s,infinity)", boundary_text);
+                    snprintf(out->decreasing, sizeof(out->decreasing), "none");
+                } else {
+                    snprintf(out->increasing, sizeof(out->increasing), "none");
+                    snprintf(out->decreasing, sizeof(out->decreasing),
+                             "(-infinity,%s)", boundary_text);
+                }
                 snprintf(out->concave_up, sizeof(out->concave_up), "none");
                 snprintf(out->concave_down, sizeof(out->concave_down),
-                         "(-infinity,infinity)");
+                         special_poly.coefficient[1].num > 0
+                             ? "(%s,infinity)" : "(-infinity,%s)",
+                         boundary_text);
+                step_add(&out->steps,
+                         "4. Use the square-root boundary and derivative sign.");
+                intervals_handled = 1;
             }
         }
-        if (out->range[0] == '\0') {
-            if (polynomial.degree == 0) {
-                char value[64];
-                math_fraction_to_text(polynomial.coefficient[0], value, sizeof(value));
-                snprintf(out->range, sizeof(out->range), "{%s}", value);
-            } else if (polynomial.degree == 1) {
-                snprintf(out->range, sizeof(out->range), "(-infinity,infinity)");
+
+        if (!intervals_handled
+                && rational_from_node(expression, expression->root, &rational)
+                && rational.denominator.degree == 1
+                && rational.numerator.degree <= 1) {
+            MathFraction pole = fraction_divide(
+                fraction_negate(rational.denominator.coefficient[0]),
+                rational.denominator.coefficient[1]);
+            MathFraction determinant = fraction_subtract(
+                fraction_multiply(rational.numerator.coefficient[1],
+                                  rational.denominator.coefficient[0]),
+                fraction_multiply(rational.numerator.coefficient[0],
+                                  rational.denominator.coefficient[1]));
+            char pole_text[64];
+            math_fraction_to_text(pole, pole_text, sizeof(pole_text));
+            if (math_fraction_is_zero(determinant)) {
+                snprintf(out->increasing, sizeof(out->increasing), "none");
+                snprintf(out->decreasing, sizeof(out->decreasing), "none");
+                snprintf(out->concave_up, sizeof(out->concave_up), "none");
+                snprintf(out->concave_down, sizeof(out->concave_down), "none");
+            } else if (determinant.num > 0) {
+                snprintf(out->increasing, sizeof(out->increasing),
+                         "(-infinity,%s) U (%s,infinity)", pole_text, pole_text);
+                snprintf(out->decreasing, sizeof(out->decreasing), "none");
+                snprintf(out->concave_up, sizeof(out->concave_up),
+                         "(-infinity,%s)", pole_text);
+                snprintf(out->concave_down, sizeof(out->concave_down),
+                         "(%s,infinity)", pole_text);
             } else {
-                format_quadratic_range(&polynomial, out->range, sizeof(out->range));
+                snprintf(out->increasing, sizeof(out->increasing), "none");
+                snprintf(out->decreasing, sizeof(out->decreasing),
+                         "(-infinity,%s) U (%s,infinity)", pole_text, pole_text);
+                snprintf(out->concave_up, sizeof(out->concave_up),
+                         "(%s,infinity)", pole_text);
+                snprintf(out->concave_down, sizeof(out->concave_down),
+                         "(-infinity,%s)", pole_text);
             }
+            step_add(&out->steps,
+                     "4. Split at the denominator zero x=%s and inspect the exact derivative sign.",
+                     pole_text);
+            intervals_handled = 1;
         }
-        step_add(&out->steps, "4. Use exact polynomial slope and vertex sign analysis.");
-    } else {
+
+        if (!intervals_handled
+                && math_expression_to_polynomial(expression, &polynomial) == MATH_OK
+                && polynomial.degree <= 2) {
+            char vertex[64];
+            int has_even_terms = 0;
+            int has_odd_terms = 0;
+            int coefficient_index;
+
+            for (coefficient_index = 0;
+                 coefficient_index <= polynomial.degree; coefficient_index++) {
+                if (math_fraction_is_zero(polynomial.coefficient[coefficient_index])) {
+                    continue;
+                }
+                if (coefficient_index % 2 == 0) {
+                    has_even_terms = 1;
+                } else {
+                    has_odd_terms = 1;
+                }
+            }
+            if (out->parity[0] == '\0') {
+                if (has_even_terms && has_odd_terms) {
+                    snprintf(out->parity, sizeof(out->parity), "Neither");
+                } else if (has_odd_terms) {
+                    snprintf(out->parity, sizeof(out->parity), "Odd");
+                } else if (has_even_terms) {
+                    snprintf(out->parity, sizeof(out->parity), "Even");
+                } else {
+                    snprintf(out->parity, sizeof(out->parity), "Both");
+                }
+                step_add(&out->steps,
+                         "3. Compare f(-x) with f(x) and -f(x): %s.",
+                         out->parity);
+            }
+            if (polynomial.degree == 0) {
+                format_linear_intervals(math_fraction_zero(), out->increasing,
+                                        out->decreasing, out->concave_up,
+                                        out->concave_down, sizeof(out->increasing));
+            } else if (polynomial.degree == 1) {
+                format_linear_intervals(polynomial.coefficient[1], out->increasing,
+                                        out->decreasing, out->concave_up,
+                                        out->concave_down, sizeof(out->increasing));
+            } else {
+                MathFraction vertex_x = fraction_divide(
+                    fraction_negate(polynomial.coefficient[1]),
+                    fraction_multiply(math_fraction(2, 1),
+                                      polynomial.coefficient[2]));
+                math_fraction_to_text(vertex_x, vertex, sizeof(vertex));
+                if (polynomial.coefficient[2].num > 0) {
+                    snprintf(out->increasing, sizeof(out->increasing),
+                             "(%s,infinity)", vertex);
+                    snprintf(out->decreasing, sizeof(out->decreasing),
+                             "(-infinity,%s)", vertex);
+                    snprintf(out->concave_up, sizeof(out->concave_up),
+                             "(-infinity,infinity)");
+                    snprintf(out->concave_down, sizeof(out->concave_down), "none");
+                } else {
+                    snprintf(out->increasing, sizeof(out->increasing),
+                             "(-infinity,%s)", vertex);
+                    snprintf(out->decreasing, sizeof(out->decreasing),
+                             "(%s,infinity)", vertex);
+                    snprintf(out->concave_up, sizeof(out->concave_up), "none");
+                    snprintf(out->concave_down, sizeof(out->concave_down),
+                             "(-infinity,infinity)");
+                }
+            }
+            if (out->range[0] == '\0') {
+                if (polynomial.degree == 0) {
+                    char value[64];
+                    math_fraction_to_text(polynomial.coefficient[0], value, sizeof(value));
+                    snprintf(out->range, sizeof(out->range), "{%s}", value);
+                } else if (polynomial.degree == 1) {
+                    snprintf(out->range, sizeof(out->range), "(-infinity,infinity)");
+                } else {
+                    format_quadratic_range(&polynomial, out->range, sizeof(out->range));
+                }
+            }
+            step_add(&out->steps, "4. Use exact polynomial slope and vertex sign analysis.");
+            intervals_handled = 1;
+        }
+        if (!intervals_handled) {
         snprintf(out->increasing, sizeof(out->increasing),
                  "Exact interval analysis not supported");
         snprintf(out->decreasing, sizeof(out->decreasing),
@@ -2370,6 +2623,7 @@ MathStatus math_analyze_function(const MathExpr *expression,
         if (out->warning[0] == '\0') {
             snprintf(out->warning, sizeof(out->warning),
                      "Intervals are exact for polynomial degree 0 through 2 in this release.");
+        }
         }
     }
     if (out->range[0] == '\0') {

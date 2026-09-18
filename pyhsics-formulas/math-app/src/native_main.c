@@ -10,6 +10,7 @@
 #include <tice.h>
 
 static const char *menu_items[] = {
+    "Automatic input",
     "Solve equation",
     "Analyze function",
     "Transform quadratic",
@@ -147,6 +148,17 @@ static int read_fraction(const char *prompt, MathFraction *out) {
     return math_fraction_parse(buffer, strlen(buffer), out);
 }
 
+static int read_toggle(const char *prompt, uint8_t *out) {
+    MathFraction value;
+    if (!read_fraction(prompt, &value)
+            || value.den != 1
+            || (value.num != 0 && value.num != 1)) {
+        return 0;
+    }
+    *out = (uint8_t) value.num;
+    return 1;
+}
+
 static void show_parse_error(const char *error) {
     os_ClrHomeFull();
     os_PutStrFull("Input error");
@@ -156,17 +168,12 @@ static void show_parse_error(const char *error) {
     wait_for_key();
 }
 
-static void run_solver(void) {
-    char input[MATH_OUTPUT_WIDTH];
+static void solve_text(const char *input) {
     char error[MATH_ERROR_WIDTH];
     MathEquation equation;
     MathSolveResult result;
     MathStatus status;
 
-    os_ClrHomeFull();
-    if (!read_expression("Equation: ", input, sizeof(input))) {
-        return;
-    }
     status = math_parse_equation(input, &equation, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
@@ -180,17 +187,12 @@ static void run_solver(void) {
     show_solution(&result);
 }
 
-static void run_analysis(void) {
-    char input[MATH_OUTPUT_WIDTH];
+static void analyze_text(const char *input) {
     char error[MATH_ERROR_WIDTH];
     MathExpr expression;
     MathAnalysis result;
     MathStatus status;
 
-    os_ClrHomeFull();
-    if (!read_expression("f(x)=", input, sizeof(input))) {
-        return;
-    }
     status = math_parse_expression(input, &expression, error, sizeof(error));
     if (status != MATH_OK) {
         show_parse_error(error);
@@ -202,6 +204,22 @@ static void run_analysis(void) {
         return;
     }
     show_analysis(&result);
+}
+
+static void run_solver(void) {
+    char input[MATH_OUTPUT_WIDTH];
+    os_ClrHomeFull();
+    if (read_expression("Equation: ", input, sizeof(input))) {
+        solve_text(input);
+    }
+}
+
+static void run_analysis(void) {
+    char input[MATH_OUTPUT_WIDTH];
+    os_ClrHomeFull();
+    if (read_expression("f(x)=", input, sizeof(input))) {
+        analyze_text(input);
+    }
 }
 
 static void run_transform(void) {
@@ -228,8 +246,11 @@ static void run_transform(void) {
         show_parse_error("Use exact fractions such as -3, 1/2, or 4.");
         return;
     }
-    spec.reflect_x_axis = 0;
-    spec.reflect_y_axis = 0;
+    if (!read_toggle("Reflect x-axis? 0/1", &spec.reflect_x_axis)
+            || !read_toggle("Reflect y-axis? 0/1", &spec.reflect_y_axis)) {
+        show_parse_error("Reflection choices must be 0 or 1.");
+        return;
+    }
     status = math_transform_quadratic(&expression, &spec, &result);
     if (status != MATH_OK) {
         show_parse_error(result.warning);
@@ -273,6 +294,36 @@ static void run_piecewise_analysis(void) {
     show_analysis(&result);
 }
 
+static void run_automatic(void) {
+    char input[MATH_OUTPUT_WIDTH];
+    MathPiecewise piecewise;
+    MathAnalysis analysis;
+    char error[MATH_ERROR_WIDTH];
+    MathStatus status;
+
+    os_ClrHomeFull();
+    if (!read_expression("Input: ", input, sizeof(input))) {
+        return;
+    }
+    if (strncmp(input, "piecewise(", 10) == 0) {
+        status = math_parse_piecewise(input, &piecewise, error, sizeof(error));
+        if (status != MATH_OK) {
+            show_parse_error(error);
+            return;
+        }
+        status = math_analyze_piecewise(&piecewise, &analysis);
+        if (status != MATH_OK) {
+            show_parse_error("The piecewise function could not be analyzed.");
+            return;
+        }
+        show_analysis(&analysis);
+    } else if (strchr(input, '=') != NULL) {
+        solve_text(input);
+    } else {
+        analyze_text(input);
+    }
+}
+
 static void show_about(void) {
     os_ClrHomeFull();
     os_PutStrFull("MATHAPP for TI-84 Plus CE");
@@ -288,8 +339,6 @@ static void draw_menu(uint8_t selected) {
     uint8_t index;
     os_ClrHomeFull();
     os_PutStrFull("MATHAPP");
-    os_NewLine();
-    os_PutStrFull("Automatic exact math");
     os_NewLine();
     for (index = 0; index < MENU_COUNT; index++) {
         os_PutStrFull(index == selected ? "> " : "  ");
@@ -312,12 +361,14 @@ int main(void) {
             selected = selected + 1 == MENU_COUNT ? 0 : selected + 1;
         } else if (key == sk_Enter) {
             if (selected == 0) {
-                run_solver();
+                run_automatic();
             } else if (selected == 1) {
-                run_analysis();
+                run_solver();
             } else if (selected == 2) {
-                run_transform();
+                run_analysis();
             } else if (selected == 3) {
+                run_transform();
+            } else if (selected == 4) {
                 run_piecewise_analysis();
             } else {
                 show_about();
