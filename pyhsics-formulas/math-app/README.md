@@ -13,6 +13,9 @@ The current vertical slice includes:
 - piecewise branch analysis with exact bounds and overlap validation; and
 - a calculator menu with input, answer, steps, and honest unsupported-case messages.
 
+The result viewer shows long values and steps one page at a time so exact
+intervals, radicals, and recorded operations remain readable on the CE LCD.
+
 Polynomial interval analysis currently covers degree 0 through 2. The parser
 also recognizes selected radical and absolute-value expressions for domain and
 range work. Unsupported symbolic cases are reported instead of being replaced
@@ -41,8 +44,24 @@ make ce
 
 The CE Toolchain produces `bin/MATHAPP.8xp`. The native front end uses the TI
 OS string-input and keypad routines, while `src/math_core.c` is shared with
-the host test executable. The current workspace does not include CEdev, so the
-`.8xp` build cannot be performed here yet.
+the host test executable.
+
+## CEmu emulator test
+
+CEmu requires a ROM dumped from your own TI-84 Plus CE; this project does not
+bundle or download TI firmware. After obtaining a ROM, run:
+
+```sh
+python3 tools/cemu_suite.py --rom /path/to/your/CE.rom
+```
+
+The suite transfers the built `.8xp`, saves CEmu screenshots and a state, and
+uses CEmu's TI-OS launch path to verify the program starts. Open
+`tools/emulator_preview.html` to see the LCD over the downloaded calculator
+body photograph. A saved `.ce` state can also be passed with `--image` for the
+boot/transfer checks; `--rom` is required for the separate TI-OS launch check.
+Without a user-provided ROM/state, the host math tests still run, but a real
+calculator boot cannot be honestly claimed.
 
 ## Input examples
 

@@ -19,11 +19,12 @@ static const char *menu_items[] = {
 
 #define MENU_COUNT ((uint8_t) (sizeof(menu_items) / sizeof(menu_items[0])))
 
-static void print_wrapped(const char *text) {
+static uint8_t print_wrapped(const char *text) {
     char line[39];
     size_t length = strlen(text);
     size_t offset = 0;
     size_t chunk;
+    uint8_t lines = 0;
 
     while (offset < length) {
         chunk = length - offset;
@@ -35,16 +36,19 @@ static void print_wrapped(const char *text) {
         os_PutStrFull(line);
         os_NewLine();
         offset += chunk;
+        lines++;
     }
     if (length == 0) {
         os_NewLine();
+        lines = 1;
     }
+    return lines;
 }
 
-static void print_label_value(const char *label, const char *value) {
+static uint8_t print_label_value(const char *label, const char *value) {
     char line[160];
     snprintf(line, sizeof(line), "%s%s", label, value);
-    print_wrapped(line);
+    return print_wrapped(line);
 }
 
 static void wait_for_key(void) {
@@ -53,57 +57,80 @@ static void wait_for_key(void) {
 
 static void show_steps(const MathSteps *steps) {
     uint8_t index;
-    uint8_t page_count = 0;
-
+    if (steps->count == 0) {
+        os_ClrHomeFull();
+        os_PutStrFull("Steps");
+        os_NewLine();
+        os_PutStrFull("No recorded steps.");
+        os_NewLine();
+        os_PutStrFull("Press any key");
+        wait_for_key();
+        return;
+    }
     for (index = 0; index < steps->count; index++) {
-        if (page_count == 0) {
-            os_ClrHomeFull();
-            os_PutStrFull("Steps");
-            os_NewLine();
-        }
+        char progress[32];
+        os_ClrHomeFull();
+        os_PutStrFull("Steps");
+        os_NewLine();
         print_wrapped(steps->lines[index]);
-        page_count++;
-        if (page_count == 4 || index + 1 == steps->count) {
-            os_PutStrFull("Press any key");
-            wait_for_key();
-            page_count = 0;
+        snprintf(progress, sizeof(progress), "%u/%u  Next: any key",
+                 (unsigned) (index + 1), (unsigned) steps->count);
+        os_PutStrFull(progress);
+        wait_for_key();
+    }
+}
+
+typedef struct {
+    const char *label;
+    const char *value;
+} ResultField;
+
+static void show_result_pages(const char *title, const ResultField *fields,
+                              size_t field_count, const MathSteps *steps) {
+    size_t index;
+    for (index = 0; index < field_count; index++) {
+        uint16_t key;
+        os_ClrHomeFull();
+        os_PutStrFull(title);
+        os_NewLine();
+        print_label_value(fields[index].label, fields[index].value);
+        os_PutStrFull("Any: next  Enter: steps");
+        key = os_GetKey();
+        if (key == sk_Enter) {
+            show_steps(steps);
+            return;
+        }
+        if (key == sk_Clear) {
+            return;
         }
     }
 }
 
 static void show_analysis(const MathAnalysis *analysis) {
-    os_ClrHomeFull();
-    os_PutStrFull("Analysis");
-    os_NewLine();
-    print_label_value("Domain: ", analysis->domain);
-    print_label_value("Range: ", analysis->range);
-    print_label_value("Parity: ", analysis->parity);
-    print_label_value("Increasing: ", analysis->increasing);
-    print_label_value("Decreasing: ", analysis->decreasing);
-    print_label_value("Concave up: ", analysis->concave_up);
-    print_label_value("Concave down: ", analysis->concave_down);
+    ResultField fields[8];
+    size_t count = 7;
+    fields[0] = (ResultField) {"Domain: ", analysis->domain};
+    fields[1] = (ResultField) {"Range: ", analysis->range};
+    fields[2] = (ResultField) {"Parity: ", analysis->parity};
+    fields[3] = (ResultField) {"Increasing: ", analysis->increasing};
+    fields[4] = (ResultField) {"Decreasing: ", analysis->decreasing};
+    fields[5] = (ResultField) {"Concave up: ", analysis->concave_up};
+    fields[6] = (ResultField) {"Concave down: ", analysis->concave_down};
     if (analysis->warning[0] != '\0') {
-        print_label_value("Note: ", analysis->warning);
+        fields[count++] = (ResultField) {"Note: ", analysis->warning};
     }
-    os_PutStrFull("Enter: steps  Clear: menu");
-    if (os_GetKey() == sk_Enter) {
-        show_steps(&analysis->steps);
-    }
+    show_result_pages("Analysis", fields, count, &analysis->steps);
 }
 
 static void show_solution(const MathSolveResult *solution) {
-    os_ClrHomeFull();
-    os_PutStrFull("Equation result");
-    os_NewLine();
-    print_label_value("Method: ", solution->method);
-    print_label_value("Answer: ", solution->answer);
+    ResultField fields[3];
+    size_t count = 2;
+    fields[0] = (ResultField) {"Method: ", solution->method};
+    fields[1] = (ResultField) {"Answer: ", solution->answer};
     if (solution->warning[0] != '\0') {
-        print_label_value("Note: ", solution->warning);
+        fields[count++] = (ResultField) {"Note: ", solution->warning};
     }
-    os_PutStrFull("Enter: steps  Clear: menu");
-    if (os_GetKey() == sk_Enter) {
-        show_steps(&solution->steps);
-    }
+    show_result_pages("Equation result", fields, count, &solution->steps);
 }
 
 static int read_expression(const char *prompt, char *buffer, size_t capacity) {
@@ -208,16 +235,15 @@ static void run_transform(void) {
         show_parse_error(result.warning);
         return;
     }
-    os_ClrHomeFull();
-    os_PutStrFull("Transform result");
-    os_NewLine();
-    print_label_value("g(x)=", result.formula);
-    print_label_value("Vertex: ", result.vertex);
-    print_label_value("x-int: ", result.x_intercepts);
-    print_label_value("y-int: ", result.y_intercept);
-    os_PutStrFull("Enter: steps  Clear: menu");
-    if (os_GetKey() == sk_Enter) {
-        show_steps(&result.steps);
+    {
+        const ResultField fields[] = {
+            {"g(x)=", result.formula},
+            {"Vertex: ", result.vertex},
+            {"x-int: ", result.x_intercepts},
+            {"y-int: ", result.y_intercept}
+        };
+        show_result_pages("Transform result", fields,
+                          sizeof(fields) / sizeof(fields[0]), &result.steps);
     }
 }
 

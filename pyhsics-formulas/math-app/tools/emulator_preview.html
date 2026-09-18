@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MATHAPP TI-84 Plus CE emulator preview</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    body { margin: 0; padding: 24px; background: #161616; color: #eee; }
+    main { max-width: 560px; margin: auto; }
+    .device { position: relative; width: min(100%, 420px); margin: 20px auto; }
+    .device > img:first-child { display: block; width: 100%; height: auto; }
+    .screen {
+      position: absolute;
+      left: 21.2%; top: 11.2%; width: 58.4%; height: 22.1%;
+      object-fit: fill; image-rendering: pixelated; background: #f7f7f7;
+    }
+    code { color: #b9e4ff; }
+    p { line-height: 1.45; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MATHAPP emulator</h1>
+    <p>This is the calculator-shaped preview. Put a CEmu screenshot at
+      <code>../tests/emulator-artifacts/menu.bmp</code> and refresh.</p>
+    <div class="device">
+      <img src="../assets/ti84-plus-ce.jpg" alt="TI-84 Plus CE calculator">
+      <img class="screen" src="../tests/emulator-artifacts/menu.bmp" alt="CEmu LCD screenshot">
+    </div>
+  </main>
+</body>
+</html>

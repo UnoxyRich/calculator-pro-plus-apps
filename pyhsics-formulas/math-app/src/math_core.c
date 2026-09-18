@@ -609,7 +609,12 @@ static size_t find_top_level_character(const char *input, size_t start,
         if (input[index] == '(') {
             depth++;
         } else if (input[index] == ')') {
-            depth--;
+            /* An open interval may end with ')' without opening a grouping
+             * parenthesis.  Do not let that interval delimiter hide the next
+             * top-level piecewise separator. */
+            if (depth > 0) {
+                depth--;
+            }
         } else if (input[index] == target && depth == 0) {
             return index;
         }
@@ -1212,41 +1217,105 @@ static int fraction_is_perfect_square(MathFraction value, MathFraction *root) {
     return root->den != 0;
 }
 
-static int format_square_root(MathFraction value, char *out, size_t capacity) {
-    MathFraction root;
-    int64_t square_part = 1;
-    int64_t square_free = value.num;
+static void factor_square_part(int64_t value, int64_t *outside,
+                               int64_t *inside) {
     int64_t factor;
+    int64_t square_part = 1;
+    int64_t square_free = value;
+
+    for (factor = 2; factor <= square_free / factor; factor++) {
+        int count = 0;
+        while (square_free % (factor * factor) == 0) {
+            square_free /= factor * factor;
+            count++;
+        }
+        while (count-- > 0) {
+            square_part *= factor;
+        }
+    }
+    *outside = square_part;
+    *inside = square_free;
+}
+
+static int square_root_components(MathFraction value, MathFraction *coefficient,
+                                  int64_t *radicand) {
+    int64_t numerator_outside;
+    int64_t numerator_inside;
+    int64_t denominator_outside;
+    int64_t denominator_inside;
+
+    if (value.den <= 0 || value.num < 0) {
+        return 0;
+    }
+    if (value.num == 0) {
+        *coefficient = math_fraction_zero();
+        *radicand = 1;
+        return 1;
+    }
+    factor_square_part(value.num, &numerator_outside, &numerator_inside);
+    factor_square_part(value.den, &denominator_outside, &denominator_inside);
+    if (denominator_inside > INT64_MAX / numerator_inside) {
+        return 0;
+    }
+    *radicand = numerator_inside * denominator_inside;
+    *coefficient = fraction_from_i64(numerator_outside,
+                                     denominator_outside * denominator_inside);
+    return coefficient->den != 0;
+}
+
+static int format_scaled_square_root(MathFraction scale, int64_t radicand,
+                                     char *out, size_t capacity) {
+    char scale_text[64];
+
+    if (capacity == 0 || scale.den == 0 || radicand <= 0) {
+        return 0;
+    }
+    if (radicand == 1) {
+        return math_fraction_to_text(scale, out, capacity);
+    }
+    if (math_fraction_is_zero(scale)) {
+        return snprintf(out, capacity, "0") >= 0 && strlen(out) < capacity;
+    }
+    if (scale.num == 1) {
+        if (scale.den == 1) {
+            return snprintf(out, capacity, "sqrt(%ld)", (long) radicand) >= 0
+                && strlen(out) < capacity;
+        }
+        return snprintf(out, capacity, "sqrt(%ld)/%ld", (long) radicand,
+                        (long) scale.den) >= 0 && strlen(out) < capacity;
+    }
+    if (scale.num == -1) {
+        if (scale.den == 1) {
+            return snprintf(out, capacity, "-sqrt(%ld)", (long) radicand) >= 0
+                && strlen(out) < capacity;
+        }
+        return snprintf(out, capacity, "-sqrt(%ld)/%ld", (long) radicand,
+                        (long) scale.den) >= 0 && strlen(out) < capacity;
+    }
+    if (!math_fraction_to_text(scale, scale_text, sizeof(scale_text))) {
+        return 0;
+    }
+    if (scale.den == 1) {
+        return snprintf(out, capacity, "%s*sqrt(%ld)", scale_text,
+                        (long) radicand) >= 0 && strlen(out) < capacity;
+    }
+    return snprintf(out, capacity, "%ld*sqrt(%ld)/%ld", (long) scale.num,
+                    (long) radicand, (long) scale.den) >= 0
+        && strlen(out) < capacity;
+}
+
+static int format_square_root(MathFraction value, char *out, size_t capacity) {
+    int64_t radicand;
+    MathFraction coefficient;
 
     if (value.den == 0 || value.num < 0 || capacity == 0) {
         return 0;
     }
-    if (fraction_is_perfect_square(value, &root)) {
-        return math_fraction_to_text(root, out, capacity);
+    if (!square_root_components(value, &coefficient, &radicand)) {
+        return snprintf(out, capacity, "sqrt(%ld/%ld)", (long) value.num,
+                        (long) value.den) >= 0 && strlen(out) < capacity;
     }
-    if (value.den == 1 && value.num > 0) {
-        for (factor = 2; factor * factor <= square_free; factor++) {
-            int count = 0;
-            while (square_free % (factor * factor) == 0) {
-                square_free /= factor * factor;
-                count++;
-            }
-            while (count-- > 0) {
-                square_part *= factor;
-            }
-        }
-        if (square_part > 1) {
-            if (square_free == 1) {
-                return snprintf(out, capacity, "%ld", (long) square_part) >= 0
-                    && strlen(out) < capacity;
-            }
-            return snprintf(out, capacity, "%ld*sqrt(%ld)", (long) square_part,
-                            (long) square_free) >= 0 && strlen(out) < capacity;
-        }
-    }
-    return snprintf(out, capacity, "sqrt(%ld%s%ld)", (long) value.num,
-                    value.den == 1 ? "" : "/", (long) value.den) >= 0
-        && strlen(out) < capacity;
+    return format_scaled_square_root(coefficient, radicand, out, capacity);
 }
 
 static int format_complex_root_pair(MathFraction a, MathFraction b,
@@ -1255,58 +1324,28 @@ static int format_complex_root_pair(MathFraction a, MathFraction b,
     MathFraction denominator = fraction_multiply(math_fraction(2, 1), a);
     MathFraction real_part = fraction_divide(fraction_negate(b), denominator);
     MathFraction positive = fraction_negate(discriminant);
+    MathFraction radical_coefficient;
+    MathFraction imaginary_scale;
+    int64_t radicand;
     char real_text[64];
-    char denominator_text[64];
     char imaginary_text[96];
-    int64_t square_part = 1;
-    int64_t square_free = positive.num;
-    int64_t factor;
 
     if (!math_fraction_to_text(real_part, real_text, sizeof(real_text))) {
         return 0;
     }
-    if (positive.den == 1 && positive.num > 0) {
-        for (factor = 2; factor * factor <= square_free; factor++) {
-            int count = 0;
-            while (square_free % (factor * factor) == 0) {
-                square_free /= factor * factor;
-                count++;
-            }
-            while (count-- > 0) {
-                square_part *= factor;
-            }
-        }
-        {
-            MathFraction imaginary_scale = fraction_divide(
-                math_fraction((int32_t) square_part, 1), denominator);
-            char scale_text[64];
-            if (!math_fraction_to_text(imaginary_scale, scale_text, sizeof(scale_text))) {
-                return 0;
-            }
-            if (square_free == 1) {
-                snprintf(imaginary_text, sizeof(imaginary_text), "%s", scale_text);
-            } else if (math_fraction_equal(imaginary_scale, math_fraction_one())) {
-                snprintf(imaginary_text, sizeof(imaginary_text), "sqrt(%ld)",
-                         (long) square_free);
-            } else {
-                snprintf(imaginary_text, sizeof(imaginary_text), "%s*sqrt(%ld)",
-                         scale_text, (long) square_free);
-            }
-        }
-        if (math_fraction_is_zero(real_part)) {
-            return snprintf(out, capacity, "x=+/-i*%s", imaginary_text) >= 0
-                && strlen(out) < capacity;
-        }
-        return snprintf(out, capacity, "x=%s+/-i*%s", real_text, imaginary_text) >= 0
-            && strlen(out) < capacity;
-    }
-    if (!format_square_root(positive, imaginary_text, sizeof(imaginary_text))
-            || !math_fraction_to_text(denominator, denominator_text,
-                                       sizeof(denominator_text))) {
+    if (!square_root_components(positive, &radical_coefficient, &radicand)) {
         return 0;
     }
-    return snprintf(out, capacity, "x=(%s+/-i*%s)/%s", real_text,
-                    imaginary_text, denominator_text) >= 0
+    imaginary_scale = fraction_divide(radical_coefficient, denominator);
+    if (!format_scaled_square_root(imaginary_scale, radicand, imaginary_text,
+                                   sizeof(imaginary_text))) {
+        return 0;
+    }
+    if (math_fraction_is_zero(real_part)) {
+        return snprintf(out, capacity, "x=+/-i*%s", imaginary_text) >= 0
+            && strlen(out) < capacity;
+    }
+    return snprintf(out, capacity, "x=%s+/-i*%s", real_text, imaginary_text) >= 0
         && strlen(out) < capacity;
 }
 
@@ -1402,6 +1441,25 @@ static int format_root_pair(MathFraction a, MathFraction b, MathFraction discrim
     }
     if (discriminant.num < 0) {
         return format_complex_root_pair(a, b, discriminant, out, capacity);
+    }
+    if (math_fraction_is_zero(b)) {
+        MathFraction radical_coefficient;
+        MathFraction scale;
+        int64_t radicand;
+        char first_text[96];
+        char second_text[96];
+        if (square_root_components(discriminant, &radical_coefficient, &radicand)
+                && radicand != 1) {
+            scale = fraction_divide(radical_coefficient, denominator);
+            if (!format_scaled_square_root(scale, radicand, first_text,
+                                           sizeof(first_text))
+                    || !format_scaled_square_root(fraction_negate(scale), radicand,
+                                                  second_text, sizeof(second_text))) {
+                return 0;
+            }
+            return snprintf(out, capacity, "x=%s or x=%s", first_text,
+                            second_text) >= 0 && strlen(out) < capacity;
+        }
     }
     if (!format_square_root(discriminant, radical, sizeof(radical))
             || !math_fraction_to_text(negative_b, numerator, sizeof(numerator))) {
@@ -1532,9 +1590,32 @@ static int format_exclusion_domain(const MathPoly *denominator,
             || !math_fraction_to_text(root_two, two, sizeof(two))) {
         return 0;
     }
+    if (math_fraction_equal(root_one, root_two)) {
+        return snprintf(out, capacity, "(-infinity,%s) U (%s,infinity)",
+                        one, one) >= 0 && strlen(out) < capacity;
+    }
     return snprintf(out, capacity,
                     "(-infinity,%s) U (%s,%s) U (%s,infinity)",
                     one, one, two, two) >= 0 && strlen(out) < capacity;
+}
+
+static int format_equation_domain(const MathPoly *left_denominator,
+                                  const MathPoly *right_denominator,
+                                  char *out, size_t capacity) {
+    MathPoly combined;
+
+    if (left_denominator->degree == 0) {
+        return format_exclusion_domain(right_denominator, out, capacity);
+    }
+    if (right_denominator->degree == 0) {
+        return format_exclusion_domain(left_denominator, out, capacity);
+    }
+    if (!poly_multiply(left_denominator, right_denominator, &combined)) {
+        return snprintf(out, capacity,
+                        "Real values except original denominator zeros") >= 0
+            && strlen(out) < capacity;
+    }
+    return format_exclusion_domain(&combined, out, capacity);
 }
 
 static int find_node_type(const MathExpr *expression, int index, MathNodeType type,
@@ -1952,6 +2033,8 @@ MathStatus math_solve_equation(const MathEquation *equation,
     MathFraction c;
     MathFraction discriminant;
     MathFraction root;
+    char root_text[64];
+    char allowed_domain[MATH_OUTPUT_WIDTH];
     int special_handled;
     MathStatus special_status;
     int radical_linear_handled;
@@ -2000,8 +2083,22 @@ MathStatus math_solve_equation(const MathEquation *equation,
     if (cross.degree == 0) {
         if (math_fraction_is_zero(cross.coefficient[0])) {
             snprintf(out->method, sizeof(out->method), "Identity check");
-            snprintf(out->answer, sizeof(out->answer), "All real numbers");
-            step_add(&out->steps, "4. The result is 0=0, so every allowed x works.");
+            if (left.denominator.degree > 0 || right.denominator.degree > 0) {
+                if (!format_equation_domain(&left.denominator, &right.denominator,
+                                            allowed_domain, sizeof(allowed_domain))) {
+                    snprintf(allowed_domain, sizeof(allowed_domain),
+                             "real values except denominator zeros");
+                }
+                snprintf(out->answer, sizeof(out->answer), "x in %s",
+                         allowed_domain);
+                step_add(&out->steps,
+                         "4. The result is 0=0; keep the original domain %s.",
+                         allowed_domain);
+            } else {
+                snprintf(out->answer, sizeof(out->answer), "All real numbers");
+                step_add(&out->steps,
+                         "4. The result is 0=0, so every real x works.");
+            }
         } else {
             snprintf(out->method, sizeof(out->method), "Contradiction check");
             snprintf(out->answer, sizeof(out->answer), "No solutions");
@@ -2016,8 +2113,10 @@ MathStatus math_solve_equation(const MathEquation *equation,
         if (!candidate_allowed(root, &left.denominator, &right.denominator)) {
             snprintf(out->method, sizeof(out->method), "Linear isolation");
             snprintf(out->answer, sizeof(out->answer), "No solutions");
-            step_add(&out->steps, "4. x=%s is excluded by the original equation.",
-                     coefficient);
+            math_fraction_to_text(root, root_text, sizeof(root_text));
+            step_add(&out->steps,
+                     "4. x=%s is excluded by the original equation.",
+                     root_text);
             return MATH_OK;
         }
         snprintf(out->method, sizeof(out->method), "Linear isolation");
@@ -2060,9 +2159,20 @@ MathStatus math_solve_equation(const MathEquation *equation,
             MathFraction second = fraction_divide(fraction_subtract(fraction_negate(b),
                                                                     sqrt_discriminant),
                                                                fraction_multiply(math_fraction(2, 1), a));
-            if (!candidate_allowed(first, &left.denominator, &right.denominator)
-                    && !candidate_allowed(second, &left.denominator, &right.denominator)) {
+            int first_allowed = candidate_allowed(first, &left.denominator,
+                                                  &right.denominator);
+            int second_allowed = candidate_allowed(second, &left.denominator,
+                                                   &right.denominator);
+            char first_text[64];
+            char second_text[64];
+            math_fraction_to_text(first, first_text, sizeof(first_text));
+            math_fraction_to_text(second, second_text, sizeof(second_text));
+            if (!first_allowed && !second_allowed) {
                 snprintf(out->answer, sizeof(out->answer), "No solutions");
+            } else if (first_allowed && !second_allowed) {
+                snprintf(out->answer, sizeof(out->answer), "x=%s", first_text);
+            } else if (!first_allowed && second_allowed) {
+                snprintf(out->answer, sizeof(out->answer), "x=%s", second_text);
             }
         }
     }

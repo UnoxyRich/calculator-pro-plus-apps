@@ -53,6 +53,8 @@ static void test_rational_restrictions(void) {
     MathSolveResult result;
     MathExpr expression = parse_expression("(x^2-1)/(x-1)");
     MathEquation forbidden = parse_equation("x/(x-1)=1/(x-1)");
+    MathEquation hole_root = parse_equation("(x^2-1)/(x-1)=0");
+    MathEquation identity_with_hole = parse_equation("(x-1)/(x-1)=1");
 
     assert(math_analyze_function(&expression, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "(-infinity,1) U (1,infinity)") == 0);
@@ -60,6 +62,10 @@ static void test_rational_restrictions(void) {
     assert(strcmp(analysis.parity, "Neither (domain is not symmetric)") == 0);
     assert(math_solve_equation(&forbidden, &result) == MATH_OK);
     assert(strcmp(result.answer, "No solutions") == 0);
+    assert(math_solve_equation(&hole_root, &result) == MATH_OK);
+    assert(strcmp(result.answer, "x=-1") == 0);
+    assert(math_solve_equation(&identity_with_hole, &result) == MATH_OK);
+    assert(strcmp(result.answer, "x in (-infinity,1) U (1,infinity)") == 0);
 }
 
 static void test_function_analysis(void) {
@@ -133,6 +139,45 @@ static void test_special_equations(void) {
     assert(strcmp(result.answer, "x=1 or x=5") == 0);
 }
 
+static void test_radical_formatting_and_edge_cases(void) {
+    MathSolveResult result;
+    MathEquation rational_radical = parse_equation("x^2-1/2=0");
+    MathEquation complex_rational = parse_equation("x^2+1/2=0");
+    MathEquation repeated_root = parse_equation("x^2-2x+1=0");
+
+    assert(math_solve_equation(&rational_radical, &result) == MATH_OK);
+    assert(strstr(result.answer, "sqrt(2)/2") != NULL);
+    assert(math_solve_equation(&complex_rational, &result) == MATH_OK);
+    assert(strcmp(result.answer, "x=+/-i*sqrt(2)/2") == 0);
+    assert(math_solve_equation(&repeated_root, &result) == MATH_OK);
+    assert(strcmp(result.answer, "x=1") == 0);
+}
+
+static void test_more_analysis_and_piecewise_validation(void) {
+    MathAnalysis analysis;
+    MathExpr linear = parse_expression("2x+1");
+    MathExpr absolute = parse_expression("abs(x-2)");
+    MathPiecewise piecewise;
+    char error[MATH_ERROR_WIDTH];
+
+    assert(math_analyze_function(&linear, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
+    assert(strcmp(analysis.range, "(-infinity,infinity)") == 0);
+    assert(strcmp(analysis.increasing, "(-infinity,infinity)") == 0);
+    assert(strcmp(analysis.decreasing, "none") == 0);
+    assert(math_analyze_function(&absolute, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
+    assert(strcmp(analysis.range, "[0,infinity)") == 0);
+
+    assert(math_parse_piecewise("piecewise(x|[-2,0);-x|(0,2])",
+                                &piecewise, error, sizeof(error)) == MATH_OK);
+    assert(math_analyze_piecewise(&piecewise, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "[-2,0) U (0,2]") == 0);
+    assert(strcmp(analysis.parity, "Even") == 0);
+    assert(math_parse_piecewise("piecewise(x|[0,1];x|[1,2])",
+                                &piecewise, error, sizeof(error)) == MATH_ERR_SYNTAX);
+}
+
 int main(void) {
     test_fractions_and_parser();
     test_complex_quadratic();
@@ -141,6 +186,8 @@ int main(void) {
     test_transform();
     test_piecewise_analysis();
     test_special_equations();
+    test_radical_formatting_and_edge_cases();
+    test_more_analysis_and_piecewise_validation();
     puts("math_core tests passed");
     return 0;
 }
