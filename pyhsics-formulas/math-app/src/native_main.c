@@ -15,6 +15,7 @@ static const char *menu_items[] = {
     "Analyze function",
     "Transform function",
     "Piecewise analyze",
+    "More tools",
     "About"
 };
 
@@ -265,6 +266,7 @@ static void run_transform(void) {
     {
         const ResultField fields[] = {
             {"g(x)=", result.formula},
+            {"Vertex form: ", result.vertex_form},
             {"Vertex: ", result.vertex},
             {"x-int: ", result.x_intercepts},
             {"y-int: ", result.y_intercept}
@@ -298,6 +300,215 @@ static void run_piecewise_analysis(void) {
         return;
     }
     show_analysis(&result);
+}
+
+static void run_compose(void) {
+    char outer_input[MATH_OUTPUT_WIDTH];
+    char inner_input[MATH_OUTPUT_WIDTH];
+    char error[MATH_ERROR_WIDTH];
+    MathExpr outer;
+    MathExpr inner;
+    MathCompositionResult result;
+    MathStatus status;
+
+    os_ClrHomeFull();
+    if (!read_expression("Outer f(x)=", outer_input, sizeof(outer_input))
+            || !read_expression("Inner g(x)=", inner_input, sizeof(inner_input))) {
+        return;
+    }
+    status = math_parse_expression(outer_input, &outer, error, sizeof(error));
+    if (status != MATH_OK) {
+        show_parse_error(error);
+        return;
+    }
+    status = math_parse_expression(inner_input, &inner, error, sizeof(error));
+    if (status != MATH_OK) {
+        show_parse_error(error);
+        return;
+    }
+    status = math_compose_functions(&outer, &inner, &result);
+    if (status != MATH_OK) {
+        show_parse_error(result.warning);
+        return;
+    }
+    {
+        const ResultField fields[] = {
+            {"Expression: ", result.expression},
+            {"Domain: ", result.domain},
+            {"Range: ", result.range}
+        };
+        show_result_pages("Composition", fields,
+                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+    }
+}
+
+static void run_average_rate(void) {
+    char input[MATH_OUTPUT_WIDTH];
+    char error[MATH_ERROR_WIDTH];
+    MathExpr expression;
+    MathPiecewise piecewise;
+    MathAverageRateResult result;
+    MathFraction first_x;
+    MathFraction second_x;
+    MathStatus status;
+
+    os_ClrHomeFull();
+    if (!read_expression("f(x)=", input, sizeof(input))
+            || !read_fraction("x1=", &first_x)
+            || !read_fraction("x2=", &second_x)) {
+        show_parse_error("Use exact x-values such as -2, 0, or 1/2.");
+        return;
+    }
+    if (math_classify_input(input) == MATH_INPUT_PIECEWISE) {
+        status = math_parse_piecewise(input, &piecewise, error, sizeof(error));
+        if (status == MATH_OK) {
+            status = math_average_rate_piecewise(&piecewise, first_x, second_x,
+                                                 &result);
+        }
+    } else {
+        status = math_parse_expression(input, &expression, error, sizeof(error));
+        if (status == MATH_OK) {
+            status = math_average_rate(&expression, first_x, second_x, &result);
+        }
+    }
+    if (status != MATH_OK) {
+        show_parse_error(status == MATH_ERR_SYNTAX ? error : result.warning);
+        return;
+    }
+    {
+        const ResultField fields[] = {{"Average rate: ", result.answer}};
+        show_result_pages("Average rate", fields, 1, &result.steps);
+    }
+}
+
+static void run_compose_three(void) {
+    char outer_input[MATH_OUTPUT_WIDTH];
+    char middle_input[MATH_OUTPUT_WIDTH];
+    char inner_input[MATH_OUTPUT_WIDTH];
+    char error[MATH_ERROR_WIDTH];
+    MathExpr outer;
+    MathExpr middle;
+    MathExpr inner;
+    MathCompositionResult result;
+    MathStatus status;
+
+    os_ClrHomeFull();
+    if (!read_expression("Outer f(x)=", outer_input, sizeof(outer_input))
+            || !read_expression("Middle g(x)=", middle_input, sizeof(middle_input))
+            || !read_expression("Inner h(x)=", inner_input, sizeof(inner_input))) {
+        return;
+    }
+    status = math_parse_expression(outer_input, &outer, error, sizeof(error));
+    if (status == MATH_OK) {
+        status = math_parse_expression(middle_input, &middle, error, sizeof(error));
+    }
+    if (status == MATH_OK) {
+        status = math_parse_expression(inner_input, &inner, error, sizeof(error));
+    }
+    if (status != MATH_OK) {
+        show_parse_error(error);
+        return;
+    }
+    status = math_compose_three_functions(&outer, &middle, &inner, &result);
+    if (status != MATH_OK) {
+        show_parse_error(result.warning);
+        return;
+    }
+    {
+        const ResultField fields[] = {
+            {"Expression: ", result.expression},
+            {"Domain: ", result.domain},
+            {"Range: ", result.range}
+        };
+        show_result_pages("Three-function composition", fields,
+                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+    }
+}
+
+static void run_regression(void) {
+    MathFraction x_values[3];
+    MathFraction y_values[3];
+    MathRegressionResult result;
+    MathStatus status;
+    uint8_t index;
+
+    os_ClrHomeFull();
+    for (index = 0; index < 3; index++) {
+        char prompt[16];
+        snprintf(prompt, sizeof(prompt), "x%u=", (unsigned) index);
+        if (!read_fraction(prompt, &x_values[index])) {
+            show_parse_error("Enter exact x-values.");
+            return;
+        }
+        snprintf(prompt, sizeof(prompt), "y%u=", (unsigned) index);
+        if (!read_fraction(prompt, &y_values[index])) {
+            show_parse_error("Enter exact y-values.");
+            return;
+        }
+    }
+    status = math_quadratic_regression(x_values, y_values, 3, &result);
+    if (status != MATH_OK) {
+        show_parse_error(result.warning);
+        return;
+    }
+    {
+        const ResultField fields[] = {
+            {"Model: ", result.equation},
+            {"a=", result.coefficient_a},
+            {"b=", result.coefficient_b},
+            {"c=", result.coefficient_c}
+        };
+        show_result_pages("Quadratic fit", fields,
+                          sizeof(fields) / sizeof(fields[0]), &result.steps);
+    }
+}
+
+static void draw_more_tools(uint8_t selected) {
+    static const char *items[] = {
+        "Compose functions",
+        "Compose three",
+        "Average rate",
+        "Quadratic fit",
+        "Back"
+    };
+    uint8_t index;
+    os_ClrHomeFull();
+    os_PutStrFull("More tools");
+    os_NewLine();
+    for (index = 0; index < 5; index++) {
+        os_PutStrFull(index == selected ? "> " : "  ");
+        os_PutStrFull(items[index]);
+        os_NewLine();
+    }
+    os_PutStrFull("Up/down select  Enter open");
+}
+
+static void run_more_tools(void) {
+    uint8_t selected = 0;
+    uint16_t key;
+    for (;;) {
+        draw_more_tools(selected);
+        key = os_GetKey();
+        if (key == sk_Up) {
+            selected = selected == 0 ? 4 : selected - 1;
+        } else if (key == sk_Down) {
+            selected = selected == 4 ? 0 : selected + 1;
+        } else if (key == sk_Enter) {
+            if (selected == 0) {
+                run_compose();
+            } else if (selected == 1) {
+                run_compose_three();
+            } else if (selected == 2) {
+                run_average_rate();
+            } else if (selected == 3) {
+                run_regression();
+            } else {
+                return;
+            }
+        } else if (key == sk_Clear) {
+            return;
+        }
+    }
 }
 
 static void run_automatic(void) {
@@ -336,7 +547,8 @@ static void show_about(void) {
     os_NewLine();
     print_wrapped("Exact fractions, radicals, complex quadratic roots, and real function analysis.");
     print_wrapped("The app preserves denominator exclusions and records the operations used for each result.");
-    print_wrapped("Current exact interval rules cover polynomial degree 0 through 2 and selected rational or radical domains.");
+    print_wrapped("Exact interval rules cover polynomial degree 0 through 3 and selected rational, radical, and composition domains.");
+    print_wrapped("More tools includes composition, average rate, and quadratic fit.");
     os_PutStrFull("Press any key");
     wait_for_key();
 }
@@ -346,10 +558,17 @@ static void draw_menu(uint8_t selected) {
     os_ClrHomeFull();
     os_PutStrFull("MATHAPP");
     os_NewLine();
-    for (index = 0; index < MENU_COUNT; index++) {
-        os_PutStrFull(index == selected ? "> " : "  ");
-        os_PutStrFull(menu_items[index]);
-        os_NewLine();
+    {
+        uint8_t first = selected >= 6 ? selected - 5 : 0;
+        uint8_t last = first + 6;
+        if (last > MENU_COUNT) {
+            last = MENU_COUNT;
+        }
+        for (index = first; index < last; index++) {
+            os_PutStrFull(index == selected ? "> " : "  ");
+            os_PutStrFull(menu_items[index]);
+            os_NewLine();
+        }
     }
     os_PutStrFull("Up/down select  Enter open");
 }
@@ -376,6 +595,8 @@ int main(void) {
                 run_transform();
             } else if (selected == 4) {
                 run_piecewise_analysis();
+            } else if (selected == 5) {
+                run_more_tools();
             } else {
                 show_about();
             }

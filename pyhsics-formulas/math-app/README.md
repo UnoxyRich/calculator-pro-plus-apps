@@ -1,7 +1,8 @@
 # MATHAPP — TI-84 Plus CE Math Solver
 
 This is a native C app for the TI-84 Plus CE. It accepts expressions with
-implicit multiplication, fractions, powers, `sqrt(x)`, and `abs(x)`.
+implicit multiplication, exact fractions and terminating decimals, powers,
+`sqrt(x)`, `abs(x)`, vertical absolute-value bars, and the imaginary unit `i`.
 
 The current vertical slice includes:
 
@@ -12,14 +13,18 @@ The current vertical slice includes:
 - recorded solving steps and original-denominator checks;
 - exact domain, range, parity, and interval analysis for supported functions;
 - constant, linear, and quadratic transformation with exact formula, intercept,
-  dilation, translation, and reflection output (quadratics also get vertices); and
-- piecewise branch analysis with exact bounds and overlap validation; and
+  dilation, translation, reflection, and vertex-form output (quadratics also get
+  vertices); and
+- piecewise branch analysis with exact bounds, merged ranges, and overlap validation;
+- function composition for supported exact patterns;
+- exact average-rate calculations and three-point quadratic fitting; and
+- verified two-radical equations and linear equations with complex coefficients; and
 - a calculator menu with input, answer, steps, and honest unsupported-case messages.
 
 The result viewer shows long values and steps one page at a time so exact
 intervals, radicals, and recorded operations remain readable on the CE LCD.
 
-Polynomial interval analysis currently covers degree 0 through 2. Exact
+Polynomial interval analysis currently covers degree 0 through 3. Exact
 interval rules also cover affine absolute values, linear square roots, and
 linear-over-linear rational functions. The parser recognizes selected radical
 and absolute-value expressions for domain and range work. Unsupported symbolic
@@ -38,6 +43,9 @@ multiplication, exact fractions and radicals, complex quadratic roots,
 rational holes and forbidden candidates, even/odd/neither parity, normal and
 piecewise interval analysis, radical and absolute-value analysis, reflections,
 and the quadratic scaling example.
+The suite also exercises cubic intervals, worksheet piecewise behavior,
+function composition, complex coefficients, two-radical verification,
+average rates, regression, and exact decimal normalization.
 
 ## Native calculator build
 
@@ -80,10 +88,18 @@ x^2+2x+3=0
 x^3/x
 sqrt(x^2)
 x^2-3x-4
+sqrt(x-5)+sqrt(10-x)=3
+(2+i)x=5
+|x+2|+|x-2|
 ```
 
 The existing physics formula program remains in the parent folder and is built
 independently.
+
+The `More tools` submenu provides function composition, average rate of change,
+and exact quadratic fitting from three `(x,y)` points. When a parsed expression
+needs a symbolic method outside the exact rules above, the app reports that
+limitation instead of returning a decimal guess.
 
 ## Piecewise input
 

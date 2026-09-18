@@ -24,6 +24,16 @@ typedef struct {
     int valid;
 } MathRational;
 
+typedef struct {
+    MathFraction real;
+    MathFraction imaginary;
+} MathComplexFraction;
+
+typedef struct {
+    int degree;
+    MathComplexFraction coefficient[MATH_POLY_CAP];
+} MathComplexPoly;
+
 static int64_t absolute_i64(int64_t value) {
     return value < 0 ? -value : value;
 }
@@ -101,6 +111,80 @@ static MathFraction fraction_multiply(MathFraction left, MathFraction right) {
 static MathFraction fraction_divide(MathFraction left, MathFraction right) {
     return fraction_from_i64((int64_t) left.num * right.den,
                              (int64_t) left.den * right.num);
+}
+
+static MathComplexFraction complex_fraction(MathFraction real,
+                                            MathFraction imaginary) {
+    MathComplexFraction result;
+    result.real = real;
+    result.imaginary = imaginary;
+    return result;
+}
+
+static MathComplexFraction complex_zero(void) {
+    return complex_fraction(math_fraction_zero(), math_fraction_zero());
+}
+
+static MathComplexFraction complex_one(void) {
+    return complex_fraction(math_fraction_one(), math_fraction_zero());
+}
+
+static int complex_is_zero(MathComplexFraction value) {
+    return math_fraction_is_zero(value.real)
+        && math_fraction_is_zero(value.imaginary);
+}
+
+static int complex_is_real(MathComplexFraction value) {
+    return math_fraction_is_zero(value.imaginary);
+}
+
+static MathComplexFraction complex_negate(MathComplexFraction value) {
+    return complex_fraction(fraction_negate(value.real),
+                            fraction_negate(value.imaginary));
+}
+
+static MathComplexFraction complex_add(MathComplexFraction left,
+                                       MathComplexFraction right) {
+    return complex_fraction(fraction_add(left.real, right.real),
+                            fraction_add(left.imaginary, right.imaginary));
+}
+
+static MathComplexFraction complex_subtract(MathComplexFraction left,
+                                            MathComplexFraction right) {
+    return complex_fraction(fraction_subtract(left.real, right.real),
+                            fraction_subtract(left.imaginary, right.imaginary));
+}
+
+static MathComplexFraction complex_multiply(MathComplexFraction left,
+                                            MathComplexFraction right) {
+    MathFraction real = fraction_subtract(
+        fraction_multiply(left.real, right.real),
+        fraction_multiply(left.imaginary, right.imaginary));
+    MathFraction imaginary = fraction_add(
+        fraction_multiply(left.real, right.imaginary),
+        fraction_multiply(left.imaginary, right.real));
+    return complex_fraction(real, imaginary);
+}
+
+static MathComplexFraction complex_divide(MathComplexFraction left,
+                                          MathComplexFraction right) {
+    MathFraction denominator = fraction_add(
+        fraction_multiply(right.real, right.real),
+        fraction_multiply(right.imaginary, right.imaginary));
+    MathFraction real;
+    MathFraction imaginary;
+    if (math_fraction_is_zero(denominator)) {
+        return complex_fraction(math_fraction(0, 0), math_fraction(0, 0));
+    }
+    real = fraction_divide(
+        fraction_add(fraction_multiply(left.real, right.real),
+                     fraction_multiply(left.imaginary, right.imaginary)),
+        denominator);
+    imaginary = fraction_divide(
+        fraction_subtract(fraction_multiply(left.imaginary, right.real),
+                          fraction_multiply(left.real, right.imaginary)),
+        denominator);
+    return complex_fraction(real, imaginary);
 }
 
 int math_fraction_is_zero(MathFraction value) {
@@ -282,6 +366,16 @@ static int parser_make_variable(MathParser *parser) {
     return parser_add_node(parser, node);
 }
 
+static int parser_make_imaginary(MathParser *parser) {
+    MathNode node;
+    node.type = MATH_NODE_IMAGINARY;
+    node.left = -1;
+    node.right = -1;
+    node.exponent = 0;
+    node.value = math_fraction_zero();
+    return parser_add_node(parser, node);
+}
+
 static int parser_parse_add(MathParser *parser);
 
 static int parser_parse_number(MathParser *parser) {
@@ -345,6 +439,17 @@ static int parser_parse_primary(MathParser *parser) {
         parser->cursor++;
         return child;
     }
+    if (*parser->cursor == '|') {
+        parser->cursor++;
+        child = parser_parse_add(parser);
+        parser_skip_spaces(parser);
+        if (*parser->cursor != '|') {
+            parser_error(parser, "Missing closing absolute-value bar");
+            return -1;
+        }
+        parser->cursor++;
+        return parser_make_unary(parser, MATH_NODE_ABS, child);
+    }
     if (isdigit((unsigned char) *parser->cursor) || *parser->cursor == '.') {
         return parser_parse_number(parser);
     }
@@ -361,6 +466,9 @@ static int parser_parse_primary(MathParser *parser) {
     identifier[length] = '\0';
     if (strcmp(identifier, "x") == 0 || strcmp(identifier, "X") == 0) {
         return parser_make_variable(parser);
+    }
+    if (strcmp(identifier, "i") == 0 || strcmp(identifier, "I") == 0) {
+        return parser_make_imaginary(parser);
     }
     if (strcmp(identifier, "sqrt") == 0 || strcmp(identifier, "abs") == 0) {
         MathNodeType type = strcmp(identifier, "sqrt") == 0
@@ -380,7 +488,7 @@ static int parser_parse_primary(MathParser *parser) {
         parser->cursor++;
         return parser_make_unary(parser, type, child);
     }
-    parser_error(parser, "Unknown name; use x, sqrt, or abs");
+    parser_error(parser, "Unknown name; use x, i, sqrt, or abs");
     return -1;
 }
 
@@ -898,6 +1006,7 @@ static int node_precedence(MathNodeType type) {
         case MATH_NODE_SQRT:
         case MATH_NODE_ABS:
             return 4;
+        case MATH_NODE_IMAGINARY:
         default:
             return 5;
     }
@@ -924,6 +1033,11 @@ static int format_expression_node(const MathExpr *expression, int index,
             break;
         case MATH_NODE_VARIABLE:
             if (!append_text(out, capacity, used, "x")) {
+                return 0;
+            }
+            break;
+        case MATH_NODE_IMAGINARY:
+            if (!append_text(out, capacity, used, "i")) {
                 return 0;
             }
             break;
@@ -1078,6 +1192,178 @@ static int poly_scale(const MathPoly *input, MathFraction scale, MathPoly *out) 
     return out->coefficient[out->degree].den != 0;
 }
 
+static void complex_poly_zero(MathComplexPoly *poly) {
+    int index;
+    poly->degree = 0;
+    for (index = 0; index < MATH_POLY_CAP; index++) {
+        poly->coefficient[index] = complex_zero();
+    }
+}
+
+static void complex_poly_trim(MathComplexPoly *poly) {
+    while (poly->degree > 0
+            && complex_is_zero(poly->coefficient[poly->degree])) {
+        poly->degree--;
+    }
+}
+
+static int complex_poly_add(const MathComplexPoly *left,
+                            const MathComplexPoly *right,
+                            MathComplexPoly *out) {
+    int index;
+    complex_poly_zero(out);
+    out->degree = left->degree > right->degree ? left->degree : right->degree;
+    if (out->degree >= MATH_POLY_CAP) {
+        return 0;
+    }
+    for (index = 0; index <= out->degree; index++) {
+        out->coefficient[index] = complex_add(left->coefficient[index],
+                                              right->coefficient[index]);
+    }
+    complex_poly_trim(out);
+    return 1;
+}
+
+static int complex_poly_subtract(const MathComplexPoly *left,
+                                 const MathComplexPoly *right,
+                                 MathComplexPoly *out) {
+    int index;
+    complex_poly_zero(out);
+    out->degree = left->degree > right->degree ? left->degree : right->degree;
+    if (out->degree >= MATH_POLY_CAP) {
+        return 0;
+    }
+    for (index = 0; index <= out->degree; index++) {
+        out->coefficient[index] = complex_subtract(left->coefficient[index],
+                                                   right->coefficient[index]);
+    }
+    complex_poly_trim(out);
+    return 1;
+}
+
+static int complex_poly_multiply(const MathComplexPoly *left,
+                                 const MathComplexPoly *right,
+                                 MathComplexPoly *out) {
+    int left_index;
+    int right_index;
+    complex_poly_zero(out);
+    if (left->degree + right->degree >= MATH_POLY_CAP) {
+        return 0;
+    }
+    out->degree = left->degree + right->degree;
+    for (left_index = 0; left_index <= left->degree; left_index++) {
+        for (right_index = 0; right_index <= right->degree; right_index++) {
+            out->coefficient[left_index + right_index] = complex_add(
+                out->coefficient[left_index + right_index],
+                complex_multiply(left->coefficient[left_index],
+                                 right->coefficient[right_index]));
+        }
+    }
+    complex_poly_trim(out);
+    return 1;
+}
+
+static int complex_poly_divide_constant(const MathComplexPoly *input,
+                                        MathComplexFraction divisor,
+                                        MathComplexPoly *out) {
+    int index;
+    if (complex_is_zero(divisor)) {
+        return 0;
+    }
+    complex_poly_zero(out);
+    out->degree = input->degree;
+    for (index = 0; index <= input->degree; index++) {
+        out->coefficient[index] = complex_divide(input->coefficient[index],
+                                                 divisor);
+        if (out->coefficient[index].real.den == 0
+                || out->coefficient[index].imaginary.den == 0) {
+            return 0;
+        }
+    }
+    complex_poly_trim(out);
+    return 1;
+}
+
+static int complex_polynomial_from_node(const MathExpr *expression,
+                                        int index, MathComplexPoly *out) {
+    const MathNode *node = &expression->nodes[index];
+    MathComplexPoly left;
+    MathComplexPoly right;
+    MathComplexPoly power;
+    MathComplexFraction divisor;
+    int exponent;
+
+    switch (node->type) {
+        case MATH_NODE_NUMBER:
+            complex_poly_zero(out);
+            out->coefficient[0] = complex_fraction(node->value,
+                                                   math_fraction_zero());
+            return 1;
+        case MATH_NODE_IMAGINARY:
+            complex_poly_zero(out);
+            out->coefficient[0] = complex_fraction(math_fraction_zero(),
+                                                   math_fraction_one());
+            return 1;
+        case MATH_NODE_VARIABLE:
+            complex_poly_zero(out);
+            out->degree = 1;
+            out->coefficient[1] = complex_one();
+            return 1;
+        case MATH_NODE_NEGATE:
+            if (!complex_polynomial_from_node(expression, node->left, &left)) {
+                return 0;
+            }
+            complex_poly_zero(out);
+            out->degree = left.degree;
+            for (exponent = 0; exponent <= left.degree; exponent++) {
+                out->coefficient[exponent]
+                    = complex_negate(left.coefficient[exponent]);
+            }
+            return 1;
+        case MATH_NODE_ADD:
+            return complex_polynomial_from_node(expression, node->left, &left)
+                && complex_polynomial_from_node(expression, node->right, &right)
+                && complex_poly_add(&left, &right, out);
+        case MATH_NODE_SUBTRACT:
+            return complex_polynomial_from_node(expression, node->left, &left)
+                && complex_polynomial_from_node(expression, node->right, &right)
+                && complex_poly_subtract(&left, &right, out);
+        case MATH_NODE_MULTIPLY:
+            return complex_polynomial_from_node(expression, node->left, &left)
+                && complex_polynomial_from_node(expression, node->right, &right)
+                && complex_poly_multiply(&left, &right, out);
+        case MATH_NODE_DIVIDE:
+            if (!complex_polynomial_from_node(expression, node->left, &left)
+                    || !complex_polynomial_from_node(expression, node->right, &right)
+                    || right.degree != 0) {
+                return 0;
+            }
+            divisor = right.coefficient[0];
+            return complex_poly_divide_constant(&left, divisor, out);
+        case MATH_NODE_POWER:
+            if (node->exponent < 0 || node->exponent > 4
+                    || !complex_polynomial_from_node(expression, node->left,
+                                                     &left)) {
+                return 0;
+            }
+            complex_poly_zero(&power);
+            power.coefficient[0] = complex_one();
+            for (exponent = 0; exponent < node->exponent; exponent++) {
+                MathComplexPoly next;
+                if (!complex_poly_multiply(&power, &left, &next)) {
+                    return 0;
+                }
+                power = next;
+            }
+            *out = power;
+            return 1;
+        case MATH_NODE_SQRT:
+        case MATH_NODE_ABS:
+            return 0;
+    }
+    return 0;
+}
+
 static int polynomial_from_node(const MathExpr *expression, int index,
                                 MathPoly *out) {
     const MathNode *node = &expression->nodes[index];
@@ -1096,6 +1382,8 @@ static int polynomial_from_node(const MathExpr *expression, int index,
             out->degree = 1;
             out->coefficient[1] = math_fraction_one();
             return 1;
+        case MATH_NODE_IMAGINARY:
+            return 0;
         case MATH_NODE_NEGATE:
             if (!polynomial_from_node(expression, node->left, &left)) {
                 return 0;
@@ -1183,6 +1471,8 @@ static int rational_from_node(const MathExpr *expression, int index,
             out->denominator.coefficient[0] = math_fraction_one();
             out->valid = 1;
             return 1;
+        case MATH_NODE_IMAGINARY:
+            return 0;
         case MATH_NODE_NEGATE:
             if (!rational_from_node(expression, node->left, &left)) {
                 return 0;
@@ -1306,6 +1596,164 @@ static void step_add(MathSteps *steps, const char *format, ...) {
     vsnprintf(steps->lines[steps->count], MATH_STEP_WIDTH, format, arguments);
     va_end(arguments);
     steps->count++;
+}
+
+static int expression_append_node(MathExpr *expression, MathNode node) {
+    if (expression->count >= MATH_EXPR_CAP) {
+        return -1;
+    }
+    expression->nodes[expression->count] = node;
+    expression->count++;
+    return (int) expression->count - 1;
+}
+
+static int clone_expression_node(const MathExpr *source_expression, int index,
+                                 MathExpr *out) {
+    const MathNode *source = &source_expression->nodes[index];
+    MathNode node = *source;
+    int left;
+    int right;
+
+    if (source->left >= 0) {
+        left = clone_expression_node(source_expression, source->left, out);
+        if (left < 0) {
+            return -1;
+        }
+        node.left = (int16_t) left;
+    }
+    if (source->right >= 0) {
+        right = clone_expression_node(source_expression, source->right, out);
+        if (right < 0) {
+            return -1;
+        }
+        node.right = (int16_t) right;
+    }
+    return expression_append_node(out, node);
+}
+
+static int clone_composed_node(const MathExpr *outer, int index,
+                               const MathExpr *inner, MathExpr *out) {
+    const MathNode *source = &outer->nodes[index];
+    if (source->type == MATH_NODE_VARIABLE) {
+        return clone_expression_node(inner, inner->root, out);
+    }
+    {
+        MathNode node = *source;
+        int left;
+        int right;
+        if (source->left >= 0) {
+            left = clone_composed_node(outer, source->left, inner, out);
+            if (left < 0) {
+                return -1;
+            }
+            node.left = (int16_t) left;
+        }
+        if (source->right >= 0) {
+            right = clone_composed_node(outer, source->right, inner, out);
+            if (right < 0) {
+                return -1;
+            }
+            node.right = (int16_t) right;
+        }
+        return expression_append_node(out, node);
+    }
+}
+
+static MathStatus build_composed_expression(const MathExpr *outer,
+                                            const MathExpr *inner,
+                                            MathExpr *out) {
+    int root;
+    if (outer == NULL || inner == NULL || out == NULL
+            || outer->root < 0 || inner->root < 0) {
+        return MATH_ERR_INPUT;
+    }
+    memset(out, 0, sizeof(*out));
+    out->root = -1;
+    root = clone_composed_node(outer, outer->root, inner, out);
+    if (root < 0) {
+        return MATH_ERR_LIMIT;
+    }
+    out->root = (int16_t) root;
+    return MATH_OK;
+}
+
+MathStatus math_compose_functions(const MathExpr *outer,
+                                  const MathExpr *inner,
+                                  MathCompositionResult *out) {
+    MathAnalysis analysis;
+    MathExpr composed;
+    MathStatus status;
+
+    if (outer == NULL || inner == NULL || out == NULL
+            || outer->root < 0 || inner->root < 0) {
+        return MATH_ERR_INPUT;
+    }
+    memset(out, 0, sizeof(*out));
+    out->expression[0] = '\0';
+    out->domain[0] = '\0';
+    out->range[0] = '\0';
+    out->status = MATH_OK;
+    status = build_composed_expression(outer, inner, &composed);
+    if (status != MATH_OK) {
+        snprintf(out->warning, sizeof(out->warning),
+                 "The composed expression exceeded the app storage limit.");
+        out->status = status;
+        return out->status;
+    }
+    if (math_expression_to_text(&composed, out->expression,
+                                sizeof(out->expression)) != MATH_OK) {
+        out->status = MATH_ERR_LIMIT;
+        return out->status;
+    }
+    math_analyze_function(&composed, &analysis);
+    snprintf(out->domain, sizeof(out->domain), "%s", analysis.domain);
+    snprintf(out->range, sizeof(out->range), "%s", analysis.range);
+    snprintf(out->warning, sizeof(out->warning), "%s", analysis.warning);
+    steps_reset(&out->steps);
+    step_add(&out->steps, "1. Substitute the inner function into the outer function.");
+    step_add(&out->steps, "2. Compose: %s.", out->expression);
+    step_add(&out->steps, "3. Preserve the composed domain: %s.", out->domain);
+    step_add(&out->steps, "4. Determine the exact range when supported: %s.",
+             out->range);
+    return out->status;
+}
+
+MathStatus math_compose_three_functions(const MathExpr *outer,
+                                        const MathExpr *middle,
+                                        const MathExpr *inner,
+                                        MathCompositionResult *out) {
+    MathExpr middle_composed;
+    MathExpr composed;
+    MathAnalysis analysis;
+    MathStatus status;
+
+    if (out == NULL) {
+        return MATH_ERR_INPUT;
+    }
+    memset(out, 0, sizeof(*out));
+    status = build_composed_expression(middle, inner, &middle_composed);
+    if (status == MATH_OK) {
+        status = build_composed_expression(outer, &middle_composed, &composed);
+    }
+    if (status != MATH_OK
+            || math_expression_to_text(&composed, out->expression,
+                                       sizeof(out->expression)) != MATH_OK) {
+        snprintf(out->warning, sizeof(out->warning),
+                 "The three-function composition exceeded the app limits.");
+        out->status = status == MATH_OK ? MATH_ERR_LIMIT : status;
+        return out->status;
+    }
+    math_analyze_function(&composed, &analysis);
+    snprintf(out->domain, sizeof(out->domain), "%s", analysis.domain);
+    snprintf(out->range, sizeof(out->range), "%s", analysis.range);
+    snprintf(out->warning, sizeof(out->warning), "%s", analysis.warning);
+    steps_reset(&out->steps);
+    step_add(&out->steps, "1. Substitute the inner function into the middle function.");
+    step_add(&out->steps, "2. Substitute that result into the outer function.");
+    step_add(&out->steps, "3. Compose: %s.", out->expression);
+    step_add(&out->steps, "4. Domain: %s; range: %s.", out->domain, out->range);
+    out->status = MATH_OK;
+    return out->status;
 }
 
 static int integer_square_root(int64_t value, int64_t *root) {
@@ -1591,6 +2039,169 @@ static int format_root_pair(MathFraction a, MathFraction b, MathFraction discrim
                     numerator, radical, denominator_text, numerator, radical,
                     denominator_text) >= 0
         && strlen(out) < capacity;
+}
+
+static int format_complex_fraction(MathComplexFraction value, char *out,
+                                   size_t capacity) {
+    char real_text[64];
+    char imaginary_text[64];
+    MathFraction imaginary_absolute = fraction_absolute(value.imaginary);
+
+    if (math_fraction_is_zero(value.imaginary)) {
+        return math_fraction_to_text(value.real, out, capacity);
+    }
+    if (!math_fraction_to_text(value.real, real_text, sizeof(real_text))
+            || !math_fraction_to_text(imaginary_absolute, imaginary_text,
+                                      sizeof(imaginary_text))) {
+        return 0;
+    }
+    if (math_fraction_is_zero(value.real)) {
+        if (math_fraction_equal(value.imaginary, math_fraction_one())) {
+            return snprintf(out, capacity, "i") >= 0 && strlen(out) < capacity;
+        }
+        if (math_fraction_equal(value.imaginary, math_fraction(-1, 1))) {
+            return snprintf(out, capacity, "-i") >= 0 && strlen(out) < capacity;
+        }
+        if (value.imaginary.num < 0) {
+            return snprintf(out, capacity, "-%s*i", imaginary_text) >= 0
+                && strlen(out) < capacity;
+        }
+        return snprintf(out, capacity, "%s*i", imaginary_text) >= 0
+            && strlen(out) < capacity;
+    }
+    if (value.imaginary.num < 0) {
+        if (math_fraction_equal(imaginary_absolute, math_fraction_one())) {
+            return snprintf(out, capacity, "%s-i", real_text) >= 0
+                && strlen(out) < capacity;
+        }
+        return snprintf(out, capacity, "%s-%s*i", real_text,
+                        imaginary_text) >= 0 && strlen(out) < capacity;
+    }
+    if (math_fraction_equal(imaginary_absolute, math_fraction_one())) {
+        return snprintf(out, capacity, "%s+i", real_text) >= 0
+            && strlen(out) < capacity;
+    }
+    return snprintf(out, capacity, "%s+%s*i", real_text,
+                    imaginary_text) >= 0 && strlen(out) < capacity;
+}
+
+static int expression_contains_imaginary(const MathExpr *expression, int index) {
+    const MathNode *node = &expression->nodes[index];
+    if (node->type == MATH_NODE_IMAGINARY) {
+        return 1;
+    }
+    if (node->left >= 0
+            && expression_contains_imaginary(expression, node->left)) {
+        return 1;
+    }
+    return node->right >= 0
+        && expression_contains_imaginary(expression, node->right);
+}
+
+static MathStatus try_complex_equation(const MathEquation *equation,
+                                       MathSolveResult *out, int *handled) {
+    MathComplexPoly left;
+    MathComplexPoly right;
+    MathComplexPoly cross;
+    char left_text[160];
+    char right_text[160];
+    int index;
+
+    *handled = 0;
+    if (!expression_contains_imaginary(&equation->left,
+                                       equation->left.root)
+            && !expression_contains_imaginary(&equation->right,
+                                              equation->right.root)) {
+        return MATH_OK;
+    }
+    *handled = 1;
+    memset(out, 0, sizeof(*out));
+    steps_reset(&out->steps);
+    math_expression_to_text(&equation->left, left_text, sizeof(left_text));
+    math_expression_to_text(&equation->right, right_text, sizeof(right_text));
+    step_add(&out->steps, "1. Read: %s=%s.", left_text, right_text);
+    if (!complex_polynomial_from_node(&equation->left, equation->left.root,
+                                      &left)
+            || !complex_polynomial_from_node(&equation->right,
+                                             equation->right.root, &right)
+            || !complex_poly_subtract(&left, &right, &cross)) {
+        snprintf(out->method, sizeof(out->method), "Unsupported complex pattern");
+        snprintf(out->answer, sizeof(out->answer),
+                 "This complex expression is outside the exact solver");
+        out->status = MATH_ERR_UNSUPPORTED;
+        return out->status;
+    }
+    if (cross.degree == 0) {
+        snprintf(out->method, sizeof(out->method), "Complex identity check");
+        if (complex_is_zero(cross.coefficient[0])) {
+            snprintf(out->answer, sizeof(out->answer), "All complex numbers");
+        } else {
+            snprintf(out->answer, sizeof(out->answer), "No solutions");
+        }
+        step_add(&out->steps, "2. Compare the real and imaginary parts.");
+        out->status = MATH_OK;
+        return out->status;
+    }
+    if (cross.degree == 1) {
+        MathComplexFraction root = complex_divide(
+            complex_negate(cross.coefficient[0]), cross.coefficient[1]);
+        char root_text[128];
+        if (root.real.den == 0 || root.imaginary.den == 0
+                || !format_complex_fraction(root, root_text, sizeof(root_text))) {
+            snprintf(out->method, sizeof(out->method), "Unsupported complex pattern");
+            snprintf(out->answer, sizeof(out->answer),
+                     "The complex exact result exceeded the app limits");
+            out->status = MATH_ERR_LIMIT;
+            return out->status;
+        }
+        snprintf(out->method, sizeof(out->method), "Complex linear isolation");
+        snprintf(out->answer, sizeof(out->answer), "x=%s", root_text);
+        step_add(&out->steps, "2. Collect complex coefficients and isolate x.");
+        step_add(&out->steps, "3. Multiply by the complex conjugate when needed.");
+        step_add(&out->steps, "4. x=%s.", root_text);
+        out->status = MATH_OK;
+        return out->status;
+    }
+    if (cross.degree == 2) {
+        MathFraction real_coefficient[3];
+        MathFraction discriminant;
+        char answer[256];
+        for (index = 0; index <= 2; index++) {
+            if (!complex_is_real(cross.coefficient[index])) {
+                snprintf(out->method, sizeof(out->method),
+                         "Unsupported complex quadratic pattern");
+                snprintf(out->answer, sizeof(out->answer),
+                         "Complex quadratic coefficients are not supported yet");
+                out->status = MATH_ERR_UNSUPPORTED;
+                return out->status;
+            }
+            real_coefficient[index] = cross.coefficient[index].real;
+        }
+        discriminant = fraction_subtract(
+            fraction_multiply(real_coefficient[1], real_coefficient[1]),
+            fraction_multiply(math_fraction(4, 1),
+                              fraction_multiply(real_coefficient[2],
+                                                real_coefficient[0])));
+        if (!format_root_pair(real_coefficient[2], real_coefficient[1],
+                              discriminant, answer, sizeof(answer))) {
+            snprintf(out->method, sizeof(out->method), "Unsupported complex quadratic pattern");
+            snprintf(out->answer, sizeof(out->answer),
+                     "The quadratic exact result exceeded the app limits");
+            out->status = MATH_ERR_LIMIT;
+            return out->status;
+        }
+        snprintf(out->method, sizeof(out->method), "Quadratic formula over complex constants");
+        snprintf(out->answer, sizeof(out->answer), "%s", answer);
+        step_add(&out->steps, "2. The imaginary parts cancel, leaving a real quadratic.");
+        step_add(&out->steps, "3. Apply the quadratic formula and keep exact roots.");
+        out->status = MATH_OK;
+        return out->status;
+    }
+    snprintf(out->method, sizeof(out->method), "Unsupported complex pattern");
+    snprintf(out->answer, sizeof(out->answer),
+             "Complex equations above degree 2 are not supported");
+    out->status = MATH_ERR_UNSUPPORTED;
+    return out->status;
 }
 
 static int format_positive_quadratic_roots(MathFraction a, MathFraction b,
@@ -1934,6 +2545,174 @@ static int candidate_satisfies_radical(MathFraction candidate,
         && math_fraction_equal(radicand_value, right_squared);
 }
 
+static int extract_two_linear_radicals(const MathExpr *expression,
+                                       MathPoly *first, MathPoly *second) {
+    const MathNode *root = &expression->nodes[expression->root];
+    if (root->type != MATH_NODE_ADD
+            || expression->nodes[root->left].type != MATH_NODE_SQRT
+            || expression->nodes[root->right].type != MATH_NODE_SQRT
+            || !polynomial_from_node(expression,
+                                     expression->nodes[root->left].left, first)
+            || !polynomial_from_node(expression,
+                                     expression->nodes[root->right].left, second)
+            || first->degree != 1 || second->degree != 1) {
+        return 0;
+    }
+    return !math_fraction_is_zero(first->coefficient[1])
+        && !math_fraction_is_zero(second->coefficient[1]);
+}
+
+static int candidate_satisfies_two_radicals(MathFraction candidate,
+                                            const MathPoly *first,
+                                            const MathPoly *second,
+                                            MathFraction target) {
+    MathFraction first_value = polynomial_evaluate_fraction(first, candidate);
+    MathFraction second_value = polynomial_evaluate_fraction(second, candidate);
+    MathFraction first_root;
+    MathFraction second_root;
+
+    if (first_value.num < 0 || second_value.num < 0
+            || !fraction_is_perfect_square(first_value, &first_root)
+            || !fraction_is_perfect_square(second_value, &second_root)) {
+        return 0;
+    }
+    return math_fraction_equal(fraction_add(first_root, second_root), target);
+}
+
+static MathStatus try_two_radical_equation(const MathEquation *equation,
+                                           MathSolveResult *out, int *handled) {
+    const MathExpr *special = NULL;
+    MathFraction target;
+    MathPoly first;
+    MathPoly second;
+    MathPoly target_squared;
+    MathPoly sum;
+    MathPoly isolated;
+    MathPoly squared;
+    MathPoly equation_poly;
+    MathFraction discriminant;
+    MathFraction radical_root;
+    MathFraction first_candidate;
+    MathFraction second_candidate;
+    int first_allowed;
+    int second_allowed;
+    char left_text[160];
+    char right_text[160];
+    char first_text[64];
+    char second_text[64];
+
+    *handled = 0;
+    if (expression_constant_value(&equation->right, &target)
+            && extract_two_linear_radicals(&equation->left, &first, &second)) {
+        special = &equation->left;
+    } else if (expression_constant_value(&equation->left, &target)
+            && extract_two_linear_radicals(&equation->right, &first, &second)) {
+        special = &equation->right;
+    } else {
+        return MATH_OK;
+    }
+    (void) special;
+    *handled = 1;
+    memset(out, 0, sizeof(*out));
+    steps_reset(&out->steps);
+    math_expression_to_text(&equation->left, left_text, sizeof(left_text));
+    math_expression_to_text(&equation->right, right_text, sizeof(right_text));
+    step_add(&out->steps, "1. Read: %s=%s.", left_text, right_text);
+    snprintf(out->method, sizeof(out->method),
+             "Isolate radicals, square twice, and verify");
+    if (target.num < 0 || math_fraction_is_zero(target)) {
+        snprintf(out->answer, sizeof(out->answer), "No solutions");
+        step_add(&out->steps, "2. A sum of real square roots cannot equal %s.",
+                 target.num < 0 ? "a negative value" : "zero here");
+        out->status = MATH_OK;
+        return out->status;
+    }
+    poly_zero(&target_squared);
+    target_squared.coefficient[0] = fraction_multiply(target, target);
+    if (!poly_add(&target_squared, &first, &sum)
+            || !poly_subtract(&sum, &second, &isolated)
+            || !poly_scale(&isolated,
+                           fraction_divide(math_fraction_one(),
+                                           fraction_multiply(math_fraction(2, 1),
+                                                             target)),
+                           &isolated)
+            || !poly_multiply(&isolated, &isolated, &squared)
+            || !poly_subtract(&squared, &first, &equation_poly)
+            || equation_poly.degree > 2) {
+        snprintf(out->answer, sizeof(out->answer),
+                 "The squared equation is outside degree 2");
+        out->status = MATH_ERR_UNSUPPORTED;
+        return out->status;
+    }
+    step_add(&out->steps, "2. Isolate one radical and square both sides.");
+    step_add(&out->steps, "3. Square again, then solve the resulting polynomial.");
+    if (equation_poly.degree == 0) {
+        snprintf(out->answer, sizeof(out->answer),
+                 math_fraction_is_zero(equation_poly.coefficient[0])
+                     ? "Candidates require exact verification" : "No solutions");
+        out->status = math_fraction_is_zero(equation_poly.coefficient[0])
+            ? MATH_ERR_UNSUPPORTED : MATH_OK;
+        return out->status;
+    }
+    if (equation_poly.degree == 1) {
+        first_candidate = fraction_divide(
+            fraction_negate(equation_poly.coefficient[0]),
+            equation_poly.coefficient[1]);
+        first_allowed = candidate_satisfies_two_radicals(first_candidate,
+                                                          &first, &second,
+                                                          target);
+        if (first_allowed) {
+            math_fraction_to_text(first_candidate, first_text, sizeof(first_text));
+            snprintf(out->answer, sizeof(out->answer), "x=%s", first_text);
+        } else {
+            snprintf(out->answer, sizeof(out->answer), "No solutions");
+        }
+        step_add(&out->steps, "4. Substitute the candidate into both original radicals.");
+        out->status = MATH_OK;
+        return out->status;
+    }
+    discriminant = fraction_subtract(
+        fraction_multiply(equation_poly.coefficient[1],
+                          equation_poly.coefficient[1]),
+        fraction_multiply(math_fraction(4, 1),
+                          fraction_multiply(equation_poly.coefficient[2],
+                                            equation_poly.coefficient[0])));
+    if (discriminant.num < 0
+            || !fraction_is_perfect_square(discriminant, &radical_root)) {
+        snprintf(out->answer, sizeof(out->answer),
+                 "Exact radical candidates are not supported for this case");
+        out->status = MATH_ERR_UNSUPPORTED;
+        return out->status;
+    }
+    first_candidate = fraction_divide(
+        fraction_add(fraction_negate(equation_poly.coefficient[1]),
+                     radical_root),
+        fraction_multiply(math_fraction(2, 1), equation_poly.coefficient[2]));
+    second_candidate = fraction_divide(
+        fraction_subtract(fraction_negate(equation_poly.coefficient[1]),
+                          radical_root),
+        fraction_multiply(math_fraction(2, 1), equation_poly.coefficient[2]));
+    first_allowed = candidate_satisfies_two_radicals(first_candidate,
+                                                      &first, &second, target);
+    second_allowed = candidate_satisfies_two_radicals(second_candidate,
+                                                       &first, &second, target);
+    if (first_allowed && second_allowed) {
+        format_candidate_pair(first_candidate, second_candidate,
+                              out->answer, sizeof(out->answer));
+    } else if (first_allowed) {
+        math_fraction_to_text(first_candidate, first_text, sizeof(first_text));
+        snprintf(out->answer, sizeof(out->answer), "x=%s", first_text);
+    } else if (second_allowed) {
+        math_fraction_to_text(second_candidate, second_text, sizeof(second_text));
+        snprintf(out->answer, sizeof(out->answer), "x=%s", second_text);
+    } else {
+        snprintf(out->answer, sizeof(out->answer), "No solutions");
+    }
+    step_add(&out->steps, "4. Reject any candidate that fails the original sign restrictions.");
+    out->status = MATH_OK;
+    return out->status;
+}
+
 static MathStatus try_linear_radical_equation(const MathEquation *equation,
                                               MathSolveResult *out,
                                               int *handled) {
@@ -2212,9 +2991,22 @@ MathStatus math_solve_equation(const MathEquation *equation,
     MathStatus special_status;
     int radical_linear_handled;
     MathStatus radical_linear_status;
+    int two_radical_handled;
+    MathStatus two_radical_status;
+    int complex_handled;
+    MathStatus complex_status;
 
     if (equation == NULL || out == NULL) {
         return MATH_ERR_INPUT;
+    }
+    complex_status = try_complex_equation(equation, out, &complex_handled);
+    if (complex_handled) {
+        return complex_status;
+    }
+    two_radical_status = try_two_radical_equation(equation, out,
+                                                  &two_radical_handled);
+    if (two_radical_handled) {
+        return two_radical_status;
     }
     radical_linear_status = try_linear_radical_equation(equation, out,
                                                          &radical_linear_handled);
@@ -2232,10 +3024,27 @@ MathStatus math_solve_equation(const MathEquation *equation,
     math_expression_to_text(&equation->right, right_text, sizeof(right_text));
     step_add(&out->steps, "1. Read: %s=%s", left_text, right_text);
     if (!rational_from_node(&equation->left, equation->left.root, &left)
-            || !rational_from_node(&equation->right, equation->right.root, &right)
-            || !poly_multiply(&left.numerator, &right.denominator, &cross_left)
-            || !poly_multiply(&right.numerator, &left.denominator, &cross_right)
-            || !poly_subtract(&cross_left, &cross_right, &cross)
+            || !rational_from_node(&equation->right, equation->right.root, &right)) {
+        snprintf(out->method, sizeof(out->method), "Unsupported exact pattern");
+        snprintf(out->answer, sizeof(out->answer),
+                 "Exact solver supports linear, quadratic, and rational-polynomial equations");
+        step_add(&out->steps, "2. This expression needs a method outside the current exact core.");
+        out->status = MATH_ERR_UNSUPPORTED;
+        return out->status;
+    }
+    if (poly_equal(&left.denominator, &right.denominator)) {
+        cross_left = left.numerator;
+        cross_right = right.numerator;
+    } else if (!poly_multiply(&left.numerator, &right.denominator, &cross_left)
+            || !poly_multiply(&right.numerator, &left.denominator, &cross_right)) {
+        snprintf(out->method, sizeof(out->method), "Unsupported exact pattern");
+        snprintf(out->answer, sizeof(out->answer),
+                 "The rational denominators exceed the exact solver limit");
+        step_add(&out->steps, "2. The rational equation could not be combined exactly.");
+        out->status = MATH_ERR_UNSUPPORTED;
+        return out->status;
+    }
+    if (!poly_subtract(&cross_left, &cross_right, &cross)
             || cross.degree > 2) {
         snprintf(out->method, sizeof(out->method), "Unsupported exact pattern");
         snprintf(out->answer, sizeof(out->answer),
@@ -2357,6 +3166,10 @@ static int analyze_absolute_pair(const MathExpr *expression,
                                  MathAnalysis *out);
 static int analyze_shifted_special(const MathExpr *expression,
                                    MathAnalysis *out);
+static int analyze_squared_linear_radical(const MathExpr *expression,
+                                          MathAnalysis *out);
+static int analyze_linear_sqrt_fraction(const MathExpr *expression,
+                                        MathAnalysis *out);
 
 MathStatus math_analyze_function(const MathExpr *expression,
                                  MathAnalysis *out) {
@@ -2445,7 +3258,9 @@ MathStatus math_analyze_function(const MathExpr *expression,
         step_add(&out->steps, "3. Parity: compare f(-x) with f(x) and -f(x).");
     } else {
         if (analyze_absolute_pair(expression, out)
-                || analyze_shifted_special(expression, out)) {
+                || analyze_shifted_special(expression, out)
+                || analyze_squared_linear_radical(expression, out)
+                || analyze_linear_sqrt_fraction(expression, out)) {
             absolute_pair_handled = 1;
         } else if (expression->nodes[expression->root].type == MATH_NODE_SQRT) {
             special_node = expression->root;
@@ -2722,7 +3537,7 @@ MathStatus math_analyze_function(const MathExpr *expression,
 
         if (!intervals_handled
                 && math_expression_to_polynomial(expression, &polynomial) == MATH_OK
-                && polynomial.degree <= 2) {
+                && polynomial.degree <= 3) {
             char vertex[64];
             int has_even_terms = 0;
             int has_odd_terms = 0;
@@ -2767,7 +3582,7 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 format_linear_intervals(polynomial.coefficient[1], out->increasing,
                                         out->decreasing, out->concave_up,
                                         out->concave_down, sizeof(out->increasing));
-            } else {
+            } else if (polynomial.degree == 2) {
                 MathFraction vertex_x = fraction_divide(
                     fraction_negate(polynomial.coefficient[1]),
                     fraction_multiply(math_fraction(2, 1),
@@ -2790,6 +3605,93 @@ MathStatus math_analyze_function(const MathExpr *expression,
                     snprintf(out->concave_down, sizeof(out->concave_down),
                              "(-infinity,infinity)");
                 }
+            } else {
+                MathFraction derivative_a = fraction_multiply(
+                    math_fraction(3, 1), polynomial.coefficient[3]);
+                MathFraction derivative_b = fraction_multiply(
+                    math_fraction(2, 1), polynomial.coefficient[2]);
+                MathFraction derivative_c = polynomial.coefficient[1];
+                MathFraction derivative_discriminant = fraction_subtract(
+                    fraction_multiply(derivative_b, derivative_b),
+                    fraction_multiply(math_fraction(4, 1),
+                                      fraction_multiply(derivative_a,
+                                                        derivative_c)));
+                MathFraction inflection = fraction_divide(
+                    fraction_negate(polynomial.coefficient[2]),
+                    fraction_multiply(math_fraction(3, 1),
+                                      polynomial.coefficient[3]));
+                char inflection_text[64];
+
+                math_fraction_to_text(inflection, inflection_text,
+                                      sizeof(inflection_text));
+                if (derivative_discriminant.num <= 0) {
+                    if (derivative_a.num > 0) {
+                        snprintf(out->increasing, sizeof(out->increasing),
+                                 "(-infinity,infinity)");
+                        snprintf(out->decreasing, sizeof(out->decreasing),
+                                 "none");
+                    } else {
+                        snprintf(out->increasing, sizeof(out->increasing),
+                                 "none");
+                        snprintf(out->decreasing, sizeof(out->decreasing),
+                                 "(-infinity,infinity)");
+                    }
+                } else {
+                    MathFraction derivative_root;
+                    if (fraction_is_perfect_square(derivative_discriminant,
+                                                    &derivative_root)) {
+                        MathFraction first = fraction_divide(
+                            fraction_add(fraction_negate(derivative_b),
+                                         derivative_root),
+                            fraction_multiply(math_fraction(2, 1),
+                                              derivative_a));
+                        MathFraction second = fraction_divide(
+                            fraction_subtract(fraction_negate(derivative_b),
+                                              derivative_root),
+                            fraction_multiply(math_fraction(2, 1),
+                                              derivative_a));
+                        char first_text[64];
+                        char second_text[64];
+                        if (math_fraction_compare(first, second) > 0) {
+                            MathFraction swap = first;
+                            first = second;
+                            second = swap;
+                        }
+                        math_fraction_to_text(first, first_text,
+                                              sizeof(first_text));
+                        math_fraction_to_text(second, second_text,
+                                              sizeof(second_text));
+                        if (derivative_a.num > 0) {
+                            snprintf(out->increasing, sizeof(out->increasing),
+                                     "(-infinity,%s) U (%s,infinity)",
+                                     first_text, second_text);
+                            snprintf(out->decreasing, sizeof(out->decreasing),
+                                     "(%s,%s)", first_text, second_text);
+                        } else {
+                            snprintf(out->increasing, sizeof(out->increasing),
+                                     "(%s,%s)", first_text, second_text);
+                            snprintf(out->decreasing, sizeof(out->decreasing),
+                                     "(-infinity,%s) U (%s,infinity)",
+                                     first_text, second_text);
+                        }
+                    } else {
+                        snprintf(out->increasing, sizeof(out->increasing),
+                                 "Exact interval analysis not supported");
+                        snprintf(out->decreasing, sizeof(out->decreasing),
+                                 "Exact interval analysis not supported");
+                    }
+                }
+                if (polynomial.coefficient[3].num > 0) {
+                    snprintf(out->concave_up, sizeof(out->concave_up),
+                             "(%s,infinity)", inflection_text);
+                    snprintf(out->concave_down, sizeof(out->concave_down),
+                             "(-infinity,%s)", inflection_text);
+                } else {
+                    snprintf(out->concave_up, sizeof(out->concave_up),
+                             "(-infinity,%s)", inflection_text);
+                    snprintf(out->concave_down, sizeof(out->concave_down),
+                             "(%s,infinity)", inflection_text);
+                }
             }
             if (out->range[0] == '\0') {
                 if (polynomial.degree == 0) {
@@ -2798,8 +3700,11 @@ MathStatus math_analyze_function(const MathExpr *expression,
                     snprintf(out->range, sizeof(out->range), "{%s}", value);
                 } else if (polynomial.degree == 1) {
                     snprintf(out->range, sizeof(out->range), "(-infinity,infinity)");
-                } else {
+                } else if (polynomial.degree == 2) {
                     format_quadratic_range(&polynomial, out->range, sizeof(out->range));
+                } else {
+                    snprintf(out->range, sizeof(out->range),
+                             "(-infinity,infinity)");
                 }
             }
             step_add(&out->steps, "4. Use exact polynomial slope and vertex sign analysis.");
@@ -3246,6 +4151,374 @@ static int analyze_shifted_special(const MathExpr *expression,
     return 1;
 }
 
+static int squared_linear_radical_node(const MathExpr *expression,
+                                       int node_index, MathPoly *radicand) {
+    const MathNode *node = &expression->nodes[node_index];
+    const MathNode *child;
+
+    if (node->type != MATH_NODE_POWER || node->exponent != 2
+            || node->left < 0) {
+        return 0;
+    }
+    child = &expression->nodes[node->left];
+    if (child->type != MATH_NODE_SQRT || child->left < 0
+            || !polynomial_from_node(expression, child->left, radicand)
+            || radicand->degree != 1) {
+        return 0;
+    }
+    return !math_fraction_is_zero(radicand->coefficient[1]);
+}
+
+static int analyze_squared_linear_radical(const MathExpr *expression,
+                                          MathAnalysis *out) {
+    const MathNode *root = &expression->nodes[expression->root];
+    MathPoly radicand;
+    MathPoly other;
+    MathPoly reduced;
+    MathFraction boundary;
+    MathFraction boundary_value;
+    int special_sign = 1;
+    int other_sign = 0;
+    int special_index = -1;
+    int other_index = -1;
+    char expression_text[160];
+    char boundary_text[64];
+    char value_text[64];
+    char interval[MATH_OUTPUT_WIDTH];
+
+    poly_zero(&other);
+    if (root->type == MATH_NODE_POWER
+            && squared_linear_radical_node(expression, expression->root,
+                                           &radicand)) {
+        special_index = expression->root;
+    } else if ((root->type == MATH_NODE_ADD
+                || root->type == MATH_NODE_SUBTRACT)
+            && squared_linear_radical_node(expression, root->left, &radicand)
+            && polynomial_from_node(expression, root->right, &other)
+            && other.degree <= 1) {
+        special_index = root->left;
+        other_index = root->right;
+        other_sign = root->type == MATH_NODE_ADD ? 1 : -1;
+    } else if (root->type == MATH_NODE_ADD
+            && squared_linear_radical_node(expression, root->right, &radicand)
+            && polynomial_from_node(expression, root->left, &other)
+            && other.degree <= 1) {
+        special_index = root->right;
+        other_index = root->left;
+        other_sign = 1;
+    } else if (root->type == MATH_NODE_SUBTRACT
+            && squared_linear_radical_node(expression, root->right, &radicand)
+            && polynomial_from_node(expression, root->left, &other)
+            && other.degree <= 1) {
+        special_index = root->right;
+        other_index = root->left;
+        special_sign = -1;
+        other_sign = 1;
+    }
+    if (special_index < 0) {
+        return 0;
+    }
+    (void) other_index;
+    if (other_sign == 0) {
+        poly_zero(&other);
+    } else if (special_sign > 0) {
+        MathPoly signed_other;
+        if (other_sign > 0) {
+            signed_other = other;
+        } else if (!poly_scale(&other, math_fraction(-1, 1), &signed_other)) {
+            return 0;
+        }
+        if (!poly_add(&radicand, &signed_other, &reduced)) {
+            return 0;
+        }
+    } else {
+        MathPoly signed_radicand;
+        if (!poly_scale(&radicand, math_fraction(-1, 1), &signed_radicand)
+                || !poly_add(&signed_radicand, &other, &reduced)) {
+            return 0;
+        }
+    }
+    if (other_sign == 0) {
+        reduced = radicand;
+    }
+    if (reduced.degree != 1) {
+        return 0;
+    }
+    boundary = fraction_divide(fraction_negate(radicand.coefficient[0]),
+                               radicand.coefficient[1]);
+    boundary_value = polynomial_evaluate_fraction(&reduced, boundary);
+    math_fraction_to_text(boundary, boundary_text, sizeof(boundary_text));
+    math_fraction_to_text(boundary_value, value_text, sizeof(value_text));
+    if (radicand.coefficient[1].num > 0) {
+        snprintf(out->domain, sizeof(out->domain), "[%s,infinity)",
+                 boundary_text);
+        snprintf(interval, sizeof(interval), "(%s,infinity)", boundary_text);
+    } else {
+        snprintf(out->domain, sizeof(out->domain), "(-infinity,%s]",
+                 boundary_text);
+        snprintf(interval, sizeof(interval), "(-infinity,%s)", boundary_text);
+    }
+    if ((radicand.coefficient[1].num > 0 && reduced.coefficient[1].num > 0)
+            || (radicand.coefficient[1].num < 0
+                && reduced.coefficient[1].num < 0)) {
+        snprintf(out->increasing, sizeof(out->increasing), "%s", interval);
+        snprintf(out->decreasing, sizeof(out->decreasing), "none");
+    } else {
+        snprintf(out->increasing, sizeof(out->increasing), "none");
+        snprintf(out->decreasing, sizeof(out->decreasing), "%s", interval);
+    }
+    if ((radicand.coefficient[1].num > 0 && reduced.coefficient[1].num > 0)
+            || (radicand.coefficient[1].num < 0
+                && reduced.coefficient[1].num < 0)) {
+        snprintf(out->range, sizeof(out->range), "[%s,infinity)",
+                 value_text);
+    } else {
+        snprintf(out->range, sizeof(out->range), "(-infinity,%s]",
+                 value_text);
+    }
+    snprintf(out->concave_up, sizeof(out->concave_up), "none");
+    snprintf(out->concave_down, sizeof(out->concave_down), "none");
+    snprintf(out->parity, sizeof(out->parity),
+             "Neither (domain is not symmetric)");
+    out->warning[0] = '\0';
+    math_expression_to_text(expression, expression_text, sizeof(expression_text));
+    steps_reset(&out->steps);
+    step_add(&out->steps, "1. Analyze f(x)=%s.", expression_text);
+    step_add(&out->steps, "2. Use sqrt(u)^2=u while preserving u>=0.");
+    step_add(&out->steps, "3. Domain begins at x=%s.", boundary_text);
+    step_add(&out->steps, "4. Range: %s; parity: %s.", out->range, out->parity);
+    out->status = MATH_OK;
+    return 1;
+}
+
+static int extract_linear_sqrt_form(const MathExpr *expression, int node_index,
+                                    MathPoly *radicand, MathFraction *alpha,
+                                    MathFraction *beta) {
+    const MathNode *node = &expression->nodes[node_index];
+    MathPoly left_radicand;
+    MathPoly right_radicand;
+    MathFraction left_alpha;
+    MathFraction left_beta;
+    MathFraction right_alpha;
+    MathFraction right_beta;
+    MathFraction scalar;
+
+    if (node->type == MATH_NODE_SQRT && node->left >= 0
+            && polynomial_from_node(expression, node->left, radicand)
+            && radicand->degree == 1
+            && !math_fraction_is_zero(radicand->coefficient[1])) {
+        *alpha = math_fraction_one();
+        *beta = math_fraction_zero();
+        return 1;
+    }
+    if (node->type == MATH_NODE_NUMBER) {
+        poly_zero(radicand);
+        *alpha = math_fraction_zero();
+        *beta = node->value;
+        return 1;
+    }
+    if (node->type == MATH_NODE_NEGATE
+            && extract_linear_sqrt_form(expression, node->left, radicand,
+                                        alpha, beta)) {
+        *alpha = fraction_negate(*alpha);
+        *beta = fraction_negate(*beta);
+        return 1;
+    }
+    if (node->type == MATH_NODE_ADD || node->type == MATH_NODE_SUBTRACT) {
+        if (!extract_linear_sqrt_form(expression, node->left, &left_radicand,
+                                      &left_alpha, &left_beta)
+                || !extract_linear_sqrt_form(expression, node->right,
+                                              &right_radicand, &right_alpha,
+                                              &right_beta)) {
+            return 0;
+        }
+        if (!math_fraction_is_zero(left_alpha)
+                && !math_fraction_is_zero(right_alpha)
+                && !poly_equal(&left_radicand, &right_radicand)) {
+            return 0;
+        }
+        if (math_fraction_is_zero(left_alpha)) {
+            *radicand = right_radicand;
+        } else {
+            *radicand = left_radicand;
+        }
+        *alpha = node->type == MATH_NODE_ADD
+            ? fraction_add(left_alpha, right_alpha)
+            : fraction_subtract(left_alpha, right_alpha);
+        *beta = node->type == MATH_NODE_ADD
+            ? fraction_add(left_beta, right_beta)
+            : fraction_subtract(left_beta, right_beta);
+        return 1;
+    }
+    if (node->type == MATH_NODE_MULTIPLY || node->type == MATH_NODE_DIVIDE) {
+        if (constant_node_value(expression, node->left, &scalar)
+                && extract_linear_sqrt_form(expression, node->right,
+                                            radicand, alpha, beta)) {
+            if (node->type == MATH_NODE_DIVIDE) {
+                return 0;
+            }
+            *alpha = fraction_multiply(*alpha, scalar);
+            *beta = fraction_multiply(*beta, scalar);
+            return 1;
+        }
+        if (node->type == MATH_NODE_MULTIPLY
+                && constant_node_value(expression, node->right, &scalar)
+                && extract_linear_sqrt_form(expression, node->left,
+                                            radicand, alpha, beta)) {
+            *alpha = fraction_multiply(*alpha, scalar);
+            *beta = fraction_multiply(*beta, scalar);
+            return 1;
+        }
+        if (node->type == MATH_NODE_DIVIDE
+                && constant_node_value(expression, node->right, &scalar)
+                && !math_fraction_is_zero(scalar)
+                && extract_linear_sqrt_form(expression, node->left,
+                                            radicand, alpha, beta)) {
+            *alpha = fraction_divide(*alpha, scalar);
+            *beta = fraction_divide(*beta, scalar);
+            return alpha->den != 0 && beta->den != 0;
+        }
+    }
+    return 0;
+}
+
+static int format_bounded_range(MathFraction first, int first_included,
+                                MathFraction second, int second_included,
+                                char *out, size_t capacity) {
+    char first_text[64];
+    char second_text[64];
+    if (math_fraction_compare(first, second) <= 0) {
+        if (!math_fraction_to_text(first, first_text, sizeof(first_text))
+                || !math_fraction_to_text(second, second_text,
+                                          sizeof(second_text))) {
+            return 0;
+        }
+        return snprintf(out, capacity, "%c%s,%s%c",
+                        first_included ? '[' : '(', first_text, second_text,
+                        second_included ? ']' : ')') >= 0
+            && strlen(out) < capacity;
+    }
+    return format_bounded_range(second, second_included, first, first_included,
+                                out, capacity);
+}
+
+static int analyze_linear_sqrt_fraction(const MathExpr *expression,
+                                        MathAnalysis *out) {
+    const MathNode *root = &expression->nodes[expression->root];
+    MathPoly numerator_radicand;
+    MathPoly denominator_radicand;
+    MathFraction numerator_alpha;
+    MathFraction numerator_beta;
+    MathFraction denominator_alpha;
+    MathFraction denominator_beta;
+    MathFraction boundary;
+    MathFraction endpoint_value;
+    MathFraction limit;
+    MathFraction determinant;
+    char boundary_text[64];
+    char interval[MATH_OUTPUT_WIDTH];
+    char expression_text[160];
+    int denominator_at_zero_nonzero;
+
+    if (root->type != MATH_NODE_DIVIDE
+            || !extract_linear_sqrt_form(expression, root->left,
+                                         &numerator_radicand,
+                                         &numerator_alpha, &numerator_beta)
+            || !extract_linear_sqrt_form(expression, root->right,
+                                         &denominator_radicand,
+                                         &denominator_alpha,
+                                         &denominator_beta)
+            || !poly_equal(&numerator_radicand, &denominator_radicand)
+            || math_fraction_is_zero(denominator_beta)
+            || (denominator_alpha.num != 0
+                && denominator_alpha.num * denominator_beta.num < 0)) {
+        return 0;
+    }
+    boundary = fraction_divide(
+        fraction_negate(numerator_radicand.coefficient[0]),
+        numerator_radicand.coefficient[1]);
+    endpoint_value = fraction_divide(numerator_beta, denominator_beta);
+    limit = fraction_divide(numerator_alpha, denominator_alpha);
+    determinant = fraction_subtract(
+        fraction_multiply(numerator_alpha, denominator_beta),
+        fraction_multiply(numerator_beta, denominator_alpha));
+    denominator_at_zero_nonzero = !math_fraction_is_zero(denominator_beta);
+    if (!math_fraction_to_text(boundary, boundary_text, sizeof(boundary_text))) {
+        return 0;
+    }
+    if (numerator_radicand.coefficient[1].num > 0) {
+        snprintf(out->domain, sizeof(out->domain),
+                 denominator_at_zero_nonzero ? "[%s,infinity)" : "(%s,infinity)",
+                 boundary_text);
+        snprintf(interval, sizeof(interval), "(%s,infinity)", boundary_text);
+    } else {
+        snprintf(out->domain, sizeof(out->domain),
+                 denominator_at_zero_nonzero ? "(-infinity,%s]" : "(-infinity,%s)",
+                 boundary_text);
+        snprintf(interval, sizeof(interval), "(-infinity,%s)", boundary_text);
+    }
+    if (math_fraction_is_zero(determinant)) {
+        char value_text[64];
+        if (!math_fraction_to_text(endpoint_value, value_text,
+                                   sizeof(value_text))) {
+            return 0;
+        }
+        snprintf(out->range, sizeof(out->range), "{%s}", value_text);
+        snprintf(out->increasing, sizeof(out->increasing), "none");
+        snprintf(out->decreasing, sizeof(out->decreasing), "none");
+    } else {
+        int increases_with_x =
+            (determinant.num > 0
+             && numerator_radicand.coefficient[1].num > 0)
+            || (determinant.num < 0
+                && numerator_radicand.coefficient[1].num < 0);
+        if (increases_with_x) {
+            snprintf(out->increasing, sizeof(out->increasing), "%s", interval);
+            snprintf(out->decreasing, sizeof(out->decreasing), "none");
+        } else {
+            snprintf(out->increasing, sizeof(out->increasing), "none");
+            snprintf(out->decreasing, sizeof(out->decreasing), "%s", interval);
+        }
+        if (denominator_alpha.num == 0) {
+            char endpoint_text[64];
+            if (!math_fraction_to_text(endpoint_value, endpoint_text,
+                                       sizeof(endpoint_text))) {
+                return 0;
+            }
+            if ((numerator_alpha.num > 0
+                 && numerator_radicand.coefficient[1].num > 0)
+                    || (numerator_alpha.num < 0
+                        && numerator_radicand.coefficient[1].num < 0)) {
+                snprintf(out->range, sizeof(out->range), "[%s,infinity)",
+                         endpoint_text);
+            } else {
+                snprintf(out->range, sizeof(out->range),
+                         "(-infinity,%s]", endpoint_text);
+            }
+        } else {
+            format_bounded_range(limit, 0, endpoint_value,
+                                 denominator_at_zero_nonzero, out->range,
+                                 sizeof(out->range));
+        }
+    }
+    snprintf(out->concave_up, sizeof(out->concave_up),
+             "Exact concavity analysis not supported for this composition");
+    snprintf(out->concave_down, sizeof(out->concave_down),
+             "Exact concavity analysis not supported for this composition");
+    snprintf(out->parity, sizeof(out->parity),
+             "Neither (domain is not symmetric)");
+    out->warning[0] = '\0';
+    math_expression_to_text(expression, expression_text, sizeof(expression_text));
+    steps_reset(&out->steps);
+    step_add(&out->steps, "1. Analyze f(x)=%s using t=sqrt(linear radicand).",
+             expression_text);
+    step_add(&out->steps, "2. Use t>=0 and inspect the exact fractional expression.");
+    step_add(&out->steps, "3. Include the radicand boundary and denominator restriction.");
+    step_add(&out->steps, "4. Range: %s.", out->range);
+    out->status = MATH_OK;
+    return 1;
+}
+
 static int format_piece_interval(const MathPiecewiseBranch *branch,
                                  char *out, size_t capacity) {
     char lower[64];
@@ -3291,6 +4564,14 @@ typedef struct {
     uint8_t included;
 } MathRangePoint;
 
+typedef struct {
+    MathFraction lower;
+    MathFraction upper;
+    uint8_t lower_included;
+    uint8_t upper_included;
+    uint8_t valid;
+} MathRangeInterval;
+
 static void range_point_add(MathRangePoint *points, int *count,
                             MathFraction value, int included) {
     int index;
@@ -3308,7 +4589,8 @@ static void range_point_add(MathRangePoint *points, int *count,
 }
 
 static int format_piece_range(const MathPiecewiseBranch *branch,
-                              char *out, size_t capacity) {
+                              char *out, size_t capacity,
+                              MathRangeInterval *range) {
     MathPolynomial public_poly;
     MathPoly poly;
     MathRangePoint points[4];
@@ -3322,6 +4604,7 @@ static int format_piece_range(const MathPiecewiseBranch *branch,
 
     if (math_expression_to_polynomial(&branch->expression, &public_poly) != MATH_OK
             || public_poly.degree > 2) {
+        range->valid = 0;
         return snprintf(out, capacity, "unsupported branch range") >= 0
             && strlen(out) < capacity;
     }
@@ -3329,6 +4612,11 @@ static int format_piece_range(const MathPiecewiseBranch *branch,
     memcpy(poly.coefficient, public_poly.coefficient, sizeof(poly.coefficient));
     if (poly.degree == 0) {
         char value[64];
+        range->lower = poly.coefficient[0];
+        range->upper = poly.coefficient[0];
+        range->lower_included = 1;
+        range->upper_included = 1;
+        range->valid = 1;
         math_fraction_to_text(poly.coefficient[0], value, sizeof(value));
         return snprintf(out, capacity, "{%s}", value) >= 0 && strlen(out) < capacity;
     }
@@ -3357,6 +4645,7 @@ static int format_piece_range(const MathPiecewiseBranch *branch,
         }
     }
     if (point_count == 0) {
+        range->valid = 0;
         return snprintf(out, capacity, "unsupported empty range") >= 0
             && strlen(out) < capacity;
     }
@@ -3378,6 +4667,11 @@ static int format_piece_range(const MathPiecewiseBranch *branch,
     }
     math_fraction_to_text(minimum.value, lower, sizeof(lower));
     math_fraction_to_text(maximum.value, upper, sizeof(upper));
+    range->lower = minimum.value;
+    range->upper = maximum.value;
+    range->lower_included = minimum.included;
+    range->upper_included = maximum.included;
+    range->valid = 1;
     return snprintf(out, capacity, "%c%s,%s%c", minimum.included ? '[' : '(',
                     lower, upper, maximum.included ? ']' : ')') >= 0
         && strlen(out) < capacity;
@@ -3535,6 +4829,8 @@ MathStatus math_analyze_piecewise(const MathPiecewise *piecewise,
                                   MathAnalysis *out) {
     uint8_t index;
     const char *parity_result;
+    MathRangeInterval ranges[MATH_PIECEWISE_BRANCHES];
+    uint8_t range_count = 0;
     int unsupported = 0;
 
     if (piecewise == NULL || out == NULL || piecewise->count == 0) {
@@ -3559,16 +4855,77 @@ MathStatus math_analyze_piecewise(const MathPiecewise *piecewise,
         }
         append_union_text(out->domain, sizeof(out->domain), interval);
         if (!format_piece_range(&piecewise->branch[index], branch_range,
-                                sizeof(branch_range))) {
+                                sizeof(branch_range), &ranges[range_count])) {
             unsupported = 1;
         }
-        append_union_text(out->range, sizeof(out->range), branch_range);
+        if (ranges[range_count].valid) {
+            range_count++;
+        } else {
+            unsupported = 1;
+        }
         append_piece_behavior(&piecewise->branch[index], out->increasing,
                               out->decreasing, out->concave_up,
                               out->concave_down, sizeof(out->increasing));
         if (strstr(branch_range, "unsupported") != NULL) {
             unsupported = 1;
         }
+    }
+    if (range_count > 0) {
+        uint8_t merge_index;
+        for (index = 0; index + 1 < range_count; index++) {
+            for (merge_index = (uint8_t) (index + 1);
+                 merge_index < range_count; merge_index++) {
+                if (math_fraction_compare(ranges[merge_index].lower,
+                                          ranges[index].lower) < 0) {
+                    MathRangeInterval swap = ranges[index];
+                    ranges[index] = ranges[merge_index];
+                    ranges[merge_index] = swap;
+                }
+            }
+        }
+        out->range[0] = '\0';
+        for (index = 0; index < range_count; index++) {
+            MathRangeInterval merged = ranges[index];
+            char interval[128];
+            while (index + 1 < range_count) {
+                MathRangeInterval next = ranges[index + 1];
+                int comparison = math_fraction_compare(next.lower,
+                                                        merged.upper);
+                if (comparison > 0
+                        || (comparison == 0
+                            && !merged.upper_included
+                            && !next.lower_included)) {
+                    break;
+                }
+                if (math_fraction_compare(next.upper, merged.upper) > 0) {
+                    merged.upper = next.upper;
+                    merged.upper_included = next.upper_included;
+                } else if (math_fraction_equal(next.upper, merged.upper)) {
+                    merged.upper_included = (uint8_t) (merged.upper_included
+                                                       || next.upper_included);
+                }
+                index++;
+            }
+            if (math_fraction_equal(merged.lower, merged.upper)
+                    && merged.lower_included && merged.upper_included) {
+                char value[64];
+                math_fraction_to_text(merged.lower, value, sizeof(value));
+                snprintf(interval, sizeof(interval), "{%s}", value);
+            } else {
+                char lower[64];
+                char upper[64];
+                math_fraction_to_text(merged.lower, lower, sizeof(lower));
+                math_fraction_to_text(merged.upper, upper, sizeof(upper));
+                snprintf(interval, sizeof(interval), "%c%s,%s%c",
+                         merged.lower_included ? '[' : '(', lower, upper,
+                         merged.upper_included ? ']' : ')');
+            }
+            append_union_text(out->range, sizeof(out->range), interval);
+        }
+    }
+    if (out->range[0] == '\0') {
+        snprintf(out->range, sizeof(out->range),
+                 "Exact range not supported for these branches");
     }
     if (piecewise_parity(piecewise, &parity_result)) {
         snprintf(out->parity, sizeof(out->parity), "%s", parity_result);
@@ -3597,6 +4954,60 @@ MathStatus math_analyze_piecewise(const MathPiecewise *piecewise,
                  "All exact branch results require polynomial degree 0 through 2.");
     }
     return MATH_OK;
+}
+
+static int format_vertex_form(const MathPoly *poly, char *out, size_t capacity) {
+    MathFraction vertex_x;
+    MathFraction vertex_y;
+    char coefficient_text[64];
+    char vertex_x_text[64];
+    char vertex_y_text[64];
+    char inside[128];
+
+    if (poly->degree != 2
+            || !math_fraction_to_text(poly->coefficient[2], coefficient_text,
+                                      sizeof(coefficient_text))) {
+        return snprintf(out, capacity, "none (not quadratic)") >= 0
+            && strlen(out) < capacity;
+    }
+    vertex_x = fraction_divide(fraction_negate(poly->coefficient[1]),
+                               fraction_multiply(math_fraction(2, 1),
+                                                 poly->coefficient[2]));
+    vertex_y = polynomial_evaluate_fraction(poly, vertex_x);
+    if (!math_fraction_to_text(vertex_x, vertex_x_text, sizeof(vertex_x_text))
+            || !math_fraction_to_text(vertex_y, vertex_y_text,
+                                      sizeof(vertex_y_text))) {
+        return 0;
+    }
+    if (math_fraction_is_zero(vertex_x)) {
+        snprintf(inside, sizeof(inside), "x");
+    } else if (vertex_x.num > 0) {
+        snprintf(inside, sizeof(inside), "x-%s", vertex_x_text);
+    } else {
+        snprintf(inside, sizeof(inside), "x+%s",
+                 vertex_x_text[0] == '-' ? vertex_x_text + 1 : vertex_x_text);
+    }
+    if (math_fraction_equal(poly->coefficient[2], math_fraction_one())) {
+        snprintf(out, capacity, "(%s)^2", inside);
+    } else if (math_fraction_equal(poly->coefficient[2], math_fraction(-1, 1))) {
+        snprintf(out, capacity, "-(%s)^2", inside);
+    } else {
+        snprintf(out, capacity, "%s*(%s)^2", coefficient_text, inside);
+    }
+    if (vertex_y.num > 0) {
+        return snprintf(out + strlen(out), capacity - strlen(out), "+%s",
+                        vertex_y_text) >= 0 && strlen(out) < capacity;
+    }
+    if (vertex_y.num < 0) {
+        char absolute_y[64];
+        if (!math_fraction_to_text(fraction_absolute(vertex_y), absolute_y,
+                                   sizeof(absolute_y))) {
+            return 0;
+        }
+        return snprintf(out + strlen(out), capacity - strlen(out), "-%s",
+                        absolute_y) >= 0 && strlen(out) < capacity;
+    }
+    return 1;
 }
 
 MathStatus math_transform_quadratic(const MathExpr *expression,
@@ -3685,6 +5096,7 @@ MathStatus math_transform_quadratic(const MathExpr *expression,
     math_expression_to_text(expression, source_text, sizeof(source_text));
     format_polynomial(&transformed, coefficient_text, sizeof(coefficient_text));
     snprintf(out->formula, sizeof(out->formula), "%s", coefficient_text);
+    format_vertex_form(&transformed, out->vertex_form, sizeof(out->vertex_form));
     if (transformed.degree == 2) {
         vertex_fraction = fraction_divide(
             fraction_negate(transformed.coefficient[1]),
@@ -3760,4 +5172,217 @@ MathStatus math_transform_quadratic(const MathExpr *expression,
     step_add(&out->steps, "4. Vertex=%s; x-intercepts=%s; y-intercept=%s.",
              out->vertex, out->x_intercepts, out->y_intercept);
     return MATH_OK;
+}
+
+static int evaluate_rational_fraction(const MathExpr *expression,
+                                      MathFraction x, MathFraction *value) {
+    MathRational rational;
+    MathFraction numerator;
+    MathFraction denominator;
+    if (!rational_from_node(expression, expression->root, &rational)) {
+        return 0;
+    }
+    numerator = polynomial_evaluate_fraction(&rational.numerator, x);
+    denominator = polynomial_evaluate_fraction(&rational.denominator, x);
+    if (math_fraction_is_zero(denominator)) {
+        return 0;
+    }
+    *value = fraction_divide(numerator, denominator);
+    return value->den != 0;
+}
+
+static MathStatus average_rate_from_values(MathFraction first_x,
+                                           MathFraction second_x,
+                                           MathFraction first_value,
+                                           MathFraction second_value,
+                                           MathAverageRateResult *out) {
+    MathFraction numerator;
+    MathFraction denominator;
+    char first_x_text[64];
+    char second_x_text[64];
+    char first_value_text[64];
+    char second_value_text[64];
+
+    if (math_fraction_equal(first_x, second_x)) {
+        snprintf(out->warning, sizeof(out->warning),
+                 "The two x-values must be different.");
+        out->status = MATH_ERR_INPUT;
+        return out->status;
+    }
+    numerator = fraction_subtract(second_value, first_value);
+    denominator = fraction_subtract(second_x, first_x);
+    if (!math_fraction_to_text(first_x, first_x_text, sizeof(first_x_text))
+            || !math_fraction_to_text(second_x, second_x_text,
+                                      sizeof(second_x_text))
+            || !math_fraction_to_text(first_value, first_value_text,
+                                      sizeof(first_value_text))
+            || !math_fraction_to_text(second_value, second_value_text,
+                                      sizeof(second_value_text))
+            || !math_fraction_to_text(fraction_divide(numerator, denominator),
+                                      out->answer, sizeof(out->answer))) {
+        out->status = MATH_ERR_LIMIT;
+        return out->status;
+    }
+    step_add(&out->steps, "1. Compute f(%s)=%s and f(%s)=%s.", first_x_text,
+             first_value_text, second_x_text, second_value_text);
+    step_add(&out->steps, "2. Average rate=(f(x2)-f(x1))/(x2-x1).");
+    step_add(&out->steps, "3. Average rate=(%s-%s)/(%s-%s)=%s.",
+             second_value_text, first_value_text, second_x_text, first_x_text,
+             out->answer);
+    out->status = MATH_OK;
+    return out->status;
+}
+
+MathStatus math_average_rate(const MathExpr *expression,
+                             MathFraction first_x, MathFraction second_x,
+                             MathAverageRateResult *out) {
+    MathFraction first_value;
+    MathFraction second_value;
+
+    if (expression == NULL || out == NULL) {
+        return MATH_ERR_INPUT;
+    }
+    memset(out, 0, sizeof(*out));
+    steps_reset(&out->steps);
+    if (!evaluate_rational_fraction(expression, first_x, &first_value)
+            || !evaluate_rational_fraction(expression, second_x, &second_value)) {
+        snprintf(out->warning, sizeof(out->warning),
+                 "The function cannot be evaluated exactly at both x-values.");
+        out->status = MATH_ERR_UNSUPPORTED;
+        return out->status;
+    }
+    return average_rate_from_values(first_x, second_x, first_value, second_value,
+                                    out);
+}
+
+static int piecewise_branch_contains(const MathPiecewiseBranch *branch,
+                                     MathFraction x) {
+    int lower = math_fraction_compare(x, branch->lower);
+    int upper = math_fraction_compare(x, branch->upper);
+    return (lower > 0 || (lower == 0 && branch->lower_closed))
+        && (upper < 0 || (upper == 0 && branch->upper_closed));
+}
+
+static int evaluate_piecewise_fraction(const MathPiecewise *piecewise,
+                                       MathFraction x, MathFraction *value) {
+    uint8_t index;
+    for (index = 0; index < piecewise->count; index++) {
+        if (piecewise_branch_contains(&piecewise->branch[index], x)
+                && evaluate_rational_fraction(&piecewise->branch[index].expression,
+                                              x, value)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+MathStatus math_average_rate_piecewise(const MathPiecewise *piecewise,
+                                        MathFraction first_x,
+                                        MathFraction second_x,
+                                        MathAverageRateResult *out) {
+    MathFraction first_value;
+    MathFraction second_value;
+
+    if (piecewise == NULL || out == NULL || piecewise->count == 0) {
+        return MATH_ERR_INPUT;
+    }
+    memset(out, 0, sizeof(*out));
+    steps_reset(&out->steps);
+    if (!evaluate_piecewise_fraction(piecewise, first_x, &first_value)
+            || !evaluate_piecewise_fraction(piecewise, second_x, &second_value)) {
+        snprintf(out->warning, sizeof(out->warning),
+                 "Both x-values must lie in the defined piecewise domain.");
+        out->status = MATH_ERR_INPUT;
+        return out->status;
+    }
+    return average_rate_from_values(first_x, second_x, first_value, second_value,
+                                    out);
+}
+
+MathStatus math_quadratic_regression(const MathFraction *x_values,
+                                     const MathFraction *y_values,
+                                     size_t count,
+                                     MathRegressionResult *out) {
+    MathFraction matrix[3][4];
+    MathFraction coefficients[3];
+    MathPoly polynomial;
+    size_t row;
+    size_t column;
+
+    if (x_values == NULL || y_values == NULL || out == NULL || count != 3) {
+        return MATH_ERR_INPUT;
+    }
+    memset(out, 0, sizeof(*out));
+    steps_reset(&out->steps);
+    for (row = 0; row < 3; row++) {
+        MathFraction square = fraction_multiply(x_values[row], x_values[row]);
+        matrix[row][0] = square;
+        matrix[row][1] = x_values[row];
+        matrix[row][2] = math_fraction_one();
+        matrix[row][3] = y_values[row];
+    }
+    for (column = 0; column < 3; column++) {
+        size_t pivot = column;
+        size_t index;
+        while (pivot < 3 && math_fraction_is_zero(matrix[pivot][column])) {
+            pivot++;
+        }
+        if (pivot == 3) {
+            snprintf(out->warning, sizeof(out->warning),
+                     "The three data points do not determine one quadratic.");
+            out->status = MATH_ERR_INPUT;
+            return out->status;
+        }
+        if (pivot != column) {
+            for (index = column; index < 4; index++) {
+                MathFraction swap = matrix[column][index];
+                matrix[column][index] = matrix[pivot][index];
+                matrix[pivot][index] = swap;
+            }
+        }
+        for (index = column + 1; index < 4; index++) {
+            matrix[column][index] = fraction_divide(matrix[column][index],
+                                                    matrix[column][column]);
+        }
+        matrix[column][column] = math_fraction_one();
+        for (index = 0; index < 3; index++) {
+            size_t eliminate;
+            if (index == column) {
+                continue;
+            }
+            {
+                MathFraction factor = matrix[index][column];
+                for (eliminate = column; eliminate < 4; eliminate++) {
+                    matrix[index][eliminate] = fraction_subtract(
+                        matrix[index][eliminate],
+                        fraction_multiply(factor, matrix[column][eliminate]));
+                }
+            }
+        }
+    }
+    coefficients[0] = matrix[0][3];
+    coefficients[1] = matrix[1][3];
+    coefficients[2] = matrix[2][3];
+    polynomial.degree = 2;
+    polynomial.coefficient[2] = coefficients[0];
+    polynomial.coefficient[1] = coefficients[1];
+    polynomial.coefficient[0] = coefficients[2];
+    if (!format_polynomial(&polynomial, out->equation,
+                           sizeof(out->equation))
+            || !math_fraction_to_text(coefficients[0], out->coefficient_a,
+                                      sizeof(out->coefficient_a))
+            || !math_fraction_to_text(coefficients[1], out->coefficient_b,
+                                      sizeof(out->coefficient_b))
+            || !math_fraction_to_text(coefficients[2], out->coefficient_c,
+                                      sizeof(out->coefficient_c))) {
+        out->status = MATH_ERR_LIMIT;
+        return out->status;
+    }
+    step_add(&out->steps, "1. Set y=ax^2+bx+c and substitute the three points.");
+    step_add(&out->steps, "2. Solve the exact 3-by-3 linear system.");
+    step_add(&out->steps, "3. a=%s, b=%s, c=%s.", out->coefficient_a,
+             out->coefficient_b, out->coefficient_c);
+    step_add(&out->steps, "4. Model: y=%s.", out->equation);
+    out->status = MATH_OK;
+    return out->status;
 }

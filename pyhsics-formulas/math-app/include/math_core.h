@@ -20,6 +20,7 @@ typedef struct {
 typedef enum {
     MATH_NODE_NUMBER,
     MATH_NODE_VARIABLE,
+    MATH_NODE_IMAGINARY,
     MATH_NODE_ADD,
     MATH_NODE_SUBTRACT,
     MATH_NODE_MULTIPLY,
@@ -115,6 +116,7 @@ typedef struct {
 
 typedef struct {
     char formula[MATH_OUTPUT_WIDTH];
+    char vertex_form[MATH_OUTPUT_WIDTH];
     char vertex[96];
     char x_intercepts[MATH_OUTPUT_WIDTH];
     char y_intercept[96];
@@ -122,6 +124,32 @@ typedef struct {
     MathSteps steps;
     MathStatus status;
 } MathTransformResult;
+
+typedef struct {
+    char expression[MATH_OUTPUT_WIDTH];
+    char domain[MATH_OUTPUT_WIDTH];
+    char range[MATH_OUTPUT_WIDTH];
+    char warning[128];
+    MathSteps steps;
+    MathStatus status;
+} MathCompositionResult;
+
+typedef struct {
+    char answer[96];
+    char warning[128];
+    MathSteps steps;
+    MathStatus status;
+} MathAverageRateResult;
+
+typedef struct {
+    char equation[MATH_OUTPUT_WIDTH];
+    char coefficient_a[64];
+    char coefficient_b[64];
+    char coefficient_c[64];
+    char warning[128];
+    MathSteps steps;
+    MathStatus status;
+} MathRegressionResult;
 
 typedef struct {
     int degree;
@@ -156,6 +184,24 @@ MathStatus math_analyze_piecewise(const MathPiecewise *piecewise,
 MathStatus math_transform_quadratic(const MathExpr *expression,
                                     const MathTransformSpec *spec,
                                     MathTransformResult *out);
+MathStatus math_compose_functions(const MathExpr *outer,
+                                  const MathExpr *inner,
+                                  MathCompositionResult *out);
+MathStatus math_compose_three_functions(const MathExpr *outer,
+                                        const MathExpr *middle,
+                                        const MathExpr *inner,
+                                        MathCompositionResult *out);
+MathStatus math_average_rate(const MathExpr *expression,
+                             MathFraction first_x, MathFraction second_x,
+                             MathAverageRateResult *out);
+MathStatus math_average_rate_piecewise(const MathPiecewise *piecewise,
+                                        MathFraction first_x,
+                                        MathFraction second_x,
+                                        MathAverageRateResult *out);
+MathStatus math_quadratic_regression(const MathFraction *x_values,
+                                     const MathFraction *y_values,
+                                     size_t count,
+                                     MathRegressionResult *out);
 
 MathStatus math_expression_to_polynomial(const MathExpr *expression,
                                          MathPolynomial *out);
