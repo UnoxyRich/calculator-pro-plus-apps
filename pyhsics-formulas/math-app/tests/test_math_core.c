@@ -60,6 +60,9 @@ static void test_calculator_key_text_normalization(void) {
     char radical_text[] = {
         (char) 0x10, '(', (char) 0x1A, '4', ')', '\0'
     };
+    char power_text[] = {
+        'x', (char) 0x11, '+', 'x', (char) 0x0E, '\0'
+    };
     char normalized[64];
     char error[MATH_ERROR_WIDTH];
     MathExpr expression;
@@ -72,6 +75,11 @@ static void test_calculator_key_text_normalization(void) {
     assert(math_normalize_input(radical_text, normalized,
                                 sizeof(normalized)));
     assert(strcmp(normalized, "sqrt(-4)") == 0);
+    assert(math_parse_expression(normalized, &expression, error,
+                                sizeof(error)) == MATH_OK);
+    assert(math_normalize_input(power_text, normalized,
+                                sizeof(normalized)));
+    assert(strcmp(normalized, "x^-1+x^3") == 0);
     assert(math_parse_expression(normalized, &expression, error,
                                 sizeof(error)) == MATH_OK);
     assert(!math_normalize_input(radical_text, normalized, 4));
