@@ -247,10 +247,20 @@ static void test_piecewise_analysis(void) {
 
 static void test_special_equations(void) {
     MathSolveResult result;
+    MathEquation linear = parse_equation("2x+3=7");
+    MathEquation identity = parse_equation("2x+1=2x+1");
+    MathEquation contradiction = parse_equation("2x=2x+1");
     MathEquation radical = parse_equation("sqrt(2x-3)=1");
     MathEquation radical_with_linear = parse_equation("sqrt(2x-3)+x=1");
     MathEquation absolute = parse_equation("abs(x-3)=2");
 
+    assert(math_solve_equation(&linear, &result) == MATH_OK);
+    assert(strcmp(result.method, "Linear isolation") == 0);
+    assert(strcmp(result.answer, "x=2") == 0);
+    assert(math_solve_equation(&identity, &result) == MATH_OK);
+    assert(strcmp(result.answer, "All real numbers") == 0);
+    assert(math_solve_equation(&contradiction, &result) == MATH_OK);
+    assert(strcmp(result.answer, "No solutions") == 0);
     assert(math_solve_equation(&radical, &result) == MATH_OK);
     assert(strcmp(result.method, "Square and verify") == 0);
     assert(strcmp(result.answer, "x=2") == 0);
