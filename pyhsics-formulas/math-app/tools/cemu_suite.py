@@ -66,6 +66,10 @@ def worksheet_smoke_sequence() -> list[str]:
     # Dedicated equation solver: separate sides avoid the non-keyboard '=' token.
     sequence += ["key|down", "key|enter", submitted(quadratic_left),
                  submitted(["0"]), "key|clear"]
+    # Radical equation: 2nd+x-squared enters sqrt( on the CE keypad.
+    radical_left = ["2nd", "^2", "2", "mul", *x, "sub", "3", "rpar"]
+    sequence += ["key|enter", submitted(radical_left), submitted(["1"]),
+                 "key|clear"]
     # Function analysis.
     sequence += ["key|down", "key|enter", submitted([*x, "pow", "3"]),
                  "key|clear"]
