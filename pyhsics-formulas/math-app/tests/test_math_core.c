@@ -104,6 +104,8 @@ static void test_function_analysis(void) {
     assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
     assert(strcmp(analysis.range, "[0,infinity)") == 0);
     assert(strcmp(analysis.parity, "Even") == 0);
+    assert(strcmp(analysis.increasing, "(0,infinity)") == 0);
+    assert(strcmp(analysis.decreasing, "(-infinity,0)") == 0);
     assert(math_analyze_function(&quadratic, &analysis) == MATH_OK);
     assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);

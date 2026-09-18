@@ -2521,6 +2521,17 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 step_add(&out->steps,
                          "4. Use the square-root boundary and derivative sign.");
                 intervals_handled = 1;
+            } else if (special_poly_ok && special_poly.degree == 2
+                    && special_poly.coefficient[2].num > 0
+                    && math_fraction_is_zero(special_poly.coefficient[1])
+                    && math_fraction_is_zero(special_poly.coefficient[0])) {
+                snprintf(out->increasing, sizeof(out->increasing), "(0,infinity)");
+                snprintf(out->decreasing, sizeof(out->decreasing), "(-infinity,0)");
+                snprintf(out->concave_up, sizeof(out->concave_up), "none");
+                snprintf(out->concave_down, sizeof(out->concave_down), "none");
+                step_add(&out->steps,
+                         "4. sqrt(a*x^2) is a scaled absolute value; split at x=0.");
+                intervals_handled = 1;
             }
         }
 
