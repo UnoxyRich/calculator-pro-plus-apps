@@ -146,6 +146,18 @@ static void test_transform(void) {
     spec.reflect_y_axis = 0;
     assert(math_transform_quadratic(&expression, &spec, &result) == MATH_OK);
     assert(strcmp(result.formula, "-x^2+3*x+4") == 0);
+
+    expression = parse_expression("x^2");
+    spec.horizontal_shift = math_fraction(2, 1);
+    spec.vertical_shift = math_fraction(3, 1);
+    spec.horizontal_scale = math_fraction(1, 1);
+    spec.vertical_scale = math_fraction(1, 1);
+    spec.reflect_x_axis = 0;
+    spec.reflect_y_axis = 0;
+    assert(math_transform_quadratic(&expression, &spec, &result) == MATH_OK);
+    assert(strcmp(result.formula, "x^2-4*x+7") == 0);
+    assert(strcmp(result.vertex, "(2,3)") == 0);
+    assert(strcmp(result.y_intercept, "(0,7)") == 0);
 }
 
 static void test_piecewise_analysis(void) {
