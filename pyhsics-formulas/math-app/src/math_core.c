@@ -2404,12 +2404,23 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 fraction_multiply(sqrt_poly.coefficient[1], sqrt_poly.coefficient[1]),
                 fraction_multiply(math_fraction(4, 1), fraction_multiply(
                     sqrt_poly.coefficient[2], sqrt_poly.coefficient[0])));
+            char minimum_text[96];
             snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
-            if (radical_discriminant.num <= 0) {
-                snprintf(out->range, sizeof(out->range), "[0,infinity)");
+            if (radical_discriminant.num < 0) {
+                MathFraction minimum = fraction_divide(
+                    fraction_negate(radical_discriminant),
+                    fraction_multiply(math_fraction(4, 1),
+                                      sqrt_poly.coefficient[2]));
+                if (format_square_root(minimum, minimum_text,
+                                       sizeof(minimum_text))) {
+                    snprintf(out->range, sizeof(out->range),
+                             "[%s,infinity)", minimum_text);
+                } else {
+                    snprintf(out->range, sizeof(out->range),
+                             "Exact range not supported for this radical expression");
+                }
             } else {
-                snprintf(out->range, sizeof(out->range),
-                         "Exact range not supported for this radical expression");
+                snprintf(out->range, sizeof(out->range), "[0,infinity)");
             }
             if (sqrt_poly.coefficient[1].num == 0
                     && sqrt_poly.coefficient[0].num == 0) {

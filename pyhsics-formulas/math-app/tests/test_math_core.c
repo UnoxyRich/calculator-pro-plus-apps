@@ -96,6 +96,7 @@ static void test_function_analysis(void) {
     MathExpr plain_odd = parse_expression("x^3");
     MathExpr plain_neither = parse_expression("x^2+x");
     MathExpr radical = parse_expression("sqrt(x^2)");
+    MathExpr shifted_radical = parse_expression("sqrt(x^2+1)");
     MathExpr quadratic = parse_expression("x^2-4x+1");
 
     assert(math_analyze_function(&even_function, &analysis) == MATH_OK);
@@ -106,6 +107,9 @@ static void test_function_analysis(void) {
     assert(strcmp(analysis.parity, "Even") == 0);
     assert(strcmp(analysis.increasing, "(0,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,0)") == 0);
+    assert(math_analyze_function(&shifted_radical, &analysis) == MATH_OK);
+    assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
+    assert(strcmp(analysis.range, "[1,infinity)") == 0);
     assert(math_analyze_function(&quadratic, &analysis) == MATH_OK);
     assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);
