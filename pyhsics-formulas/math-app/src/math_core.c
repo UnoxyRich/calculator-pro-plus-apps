@@ -2355,6 +2355,8 @@ MathStatus math_solve_equation(const MathEquation *equation,
 
 static int analyze_absolute_pair(const MathExpr *expression,
                                  MathAnalysis *out);
+static int analyze_shifted_special(const MathExpr *expression,
+                                   MathAnalysis *out);
 
 MathStatus math_analyze_function(const MathExpr *expression,
                                  MathAnalysis *out) {
@@ -2442,7 +2444,8 @@ MathStatus math_analyze_function(const MathExpr *expression,
         step_add(&out->steps, "2. Domain: %s.", out->domain);
         step_add(&out->steps, "3. Parity: compare f(-x) with f(x) and -f(x).");
     } else {
-        if (analyze_absolute_pair(expression, out)) {
+        if (analyze_absolute_pair(expression, out)
+                || analyze_shifted_special(expression, out)) {
             absolute_pair_handled = 1;
         } else if (expression->nodes[expression->root].type == MATH_NODE_SQRT) {
             special_node = expression->root;
@@ -3087,6 +3090,114 @@ static int analyze_absolute_pair(const MathExpr *expression,
     step_add(&out->steps, "3. Split at the absolute-value zeros and combine line segments.");
     step_add(&out->steps, "4. Range: %s.", out->range);
     step_add(&out->steps, "5. Parity: %s.", out->parity);
+    out->status = MATH_OK;
+    return 1;
+}
+
+static int constant_node_value(const MathExpr *expression, int node_index,
+                               MathFraction *value) {
+    MathPoly polynomial;
+    if (!polynomial_from_node(expression, node_index, &polynomial)
+            || polynomial.degree != 0) {
+        return 0;
+    }
+    *value = polynomial.coefficient[0];
+    return 1;
+}
+
+static int analyze_shifted_special(const MathExpr *expression,
+                                   MathAnalysis *out) {
+    const MathNode *root = &expression->nodes[expression->root];
+    int special_index = -1;
+    MathFraction offset;
+    MathPoly inner;
+    char expression_text[160];
+    char boundary_text[64];
+    char offset_text[64];
+
+    if (root->type != MATH_NODE_ADD) {
+        return 0;
+    }
+    if ((expression->nodes[root->left].type == MATH_NODE_ABS
+            || expression->nodes[root->left].type == MATH_NODE_SQRT)
+            && constant_node_value(expression, root->right, &offset)) {
+        special_index = root->left;
+    } else if ((expression->nodes[root->right].type == MATH_NODE_ABS
+            || expression->nodes[root->right].type == MATH_NODE_SQRT)
+            && constant_node_value(expression, root->left, &offset)) {
+        special_index = root->right;
+    }
+    if (special_index < 0
+            || !polynomial_from_node(expression,
+                                     expression->nodes[special_index].left,
+                                     &inner)) {
+        return 0;
+    }
+    if (expression->nodes[special_index].type == MATH_NODE_ABS) {
+        MathFraction vertex;
+        if (inner.degree != 1 || math_fraction_is_zero(inner.coefficient[1])) {
+            return 0;
+        }
+        vertex = fraction_divide(fraction_negate(inner.coefficient[0]),
+                                 inner.coefficient[1]);
+        math_fraction_to_text(vertex, boundary_text, sizeof(boundary_text));
+        math_fraction_to_text(offset, offset_text, sizeof(offset_text));
+        snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
+        snprintf(out->range, sizeof(out->range), "[%s,infinity)", offset_text);
+        if (inner.coefficient[1].num > 0) {
+            snprintf(out->increasing, sizeof(out->increasing),
+                     "(%s,infinity)", boundary_text);
+            snprintf(out->decreasing, sizeof(out->decreasing),
+                     "(-infinity,%s)", boundary_text);
+        } else {
+            snprintf(out->increasing, sizeof(out->increasing),
+                     "(-infinity,%s)", boundary_text);
+            snprintf(out->decreasing, sizeof(out->decreasing),
+                     "(%s,infinity)", boundary_text);
+        }
+        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+        snprintf(out->concave_down, sizeof(out->concave_down), "none");
+        snprintf(out->parity, sizeof(out->parity),
+                 math_fraction_is_zero(inner.coefficient[0]) ? "Even" : "Neither");
+    } else {
+        MathFraction boundary;
+        if (inner.degree != 1 || math_fraction_is_zero(inner.coefficient[1])) {
+            return 0;
+        }
+        boundary = fraction_divide(fraction_negate(inner.coefficient[0]),
+                                   inner.coefficient[1]);
+        math_fraction_to_text(boundary, boundary_text, sizeof(boundary_text));
+        math_fraction_to_text(offset, offset_text, sizeof(offset_text));
+        if (inner.coefficient[1].num > 0) {
+            snprintf(out->domain, sizeof(out->domain), "[%s,infinity)",
+                     boundary_text);
+            snprintf(out->increasing, sizeof(out->increasing),
+                     "(%s,infinity)", boundary_text);
+            snprintf(out->decreasing, sizeof(out->decreasing), "none");
+            snprintf(out->concave_down, sizeof(out->concave_down),
+                     "(%s,infinity)", boundary_text);
+        } else {
+            snprintf(out->domain, sizeof(out->domain), "(-infinity,%s]",
+                     boundary_text);
+            snprintf(out->increasing, sizeof(out->increasing), "none");
+            snprintf(out->decreasing, sizeof(out->decreasing),
+                     "(-infinity,%s)", boundary_text);
+            snprintf(out->concave_down, sizeof(out->concave_down),
+                     "(-infinity,%s)", boundary_text);
+        }
+        snprintf(out->range, sizeof(out->range), "[%s,infinity)", offset_text);
+        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+        snprintf(out->parity, sizeof(out->parity),
+                 "Not determined exactly for this radical expression");
+    }
+    snprintf(out->warning, sizeof(out->warning), "");
+    math_expression_to_text(expression, expression_text, sizeof(expression_text));
+    steps_reset(&out->steps);
+    step_add(&out->steps, "1. Analyze f(x)=%s.", expression_text);
+    step_add(&out->steps, "2. Preserve the exact constant shift in the range.");
+    step_add(&out->steps, "3. Split at the special-function boundary x=%s.",
+             boundary_text);
+    step_add(&out->steps, "4. Parity result: %s.", out->parity);
     out->status = MATH_OK;
     return 1;
 }
