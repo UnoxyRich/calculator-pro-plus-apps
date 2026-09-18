@@ -1593,6 +1593,70 @@ static int format_root_pair(MathFraction a, MathFraction b, MathFraction discrim
         && strlen(out) < capacity;
 }
 
+static int format_positive_quadratic_roots(MathFraction a, MathFraction b,
+                                           MathFraction discriminant,
+                                           char *lower, size_t lower_capacity,
+                                           char *upper, size_t upper_capacity) {
+    MathFraction denominator = fraction_multiply(math_fraction(2, 1), a);
+    MathFraction negative_b = fraction_negate(b);
+    MathFraction root_discriminant;
+    char denominator_text[64];
+
+    if (a.num <= 0
+            || !math_fraction_to_text(denominator, denominator_text,
+                                      sizeof(denominator_text))) {
+        return 0;
+    }
+    if (discriminant.num == 0) {
+        char root[64];
+        MathFraction result = fraction_divide(negative_b, denominator);
+        if (!math_fraction_to_text(result, root, sizeof(root))) {
+            return 0;
+        }
+        return snprintf(lower, lower_capacity, "%s", root) >= 0
+            && strlen(lower) < lower_capacity
+            && snprintf(upper, upper_capacity, "%s", root) >= 0
+            && strlen(upper) < upper_capacity;
+    }
+    if (fraction_is_perfect_square(discriminant, &root_discriminant)) {
+        MathFraction first = fraction_divide(
+            fraction_subtract(negative_b, root_discriminant), denominator);
+        MathFraction second = fraction_divide(
+            fraction_add(negative_b, root_discriminant), denominator);
+        return math_fraction_to_text(first, lower, lower_capacity)
+            && math_fraction_to_text(second, upper, upper_capacity);
+    }
+    if (math_fraction_is_zero(b)) {
+        MathFraction radical_coefficient;
+        MathFraction scale;
+        int64_t radicand;
+        if (square_root_components(discriminant, &radical_coefficient, &radicand)
+                && radicand != 1) {
+            scale = fraction_divide(radical_coefficient, denominator);
+            return format_scaled_square_root(fraction_negate(scale), radicand,
+                                             lower, lower_capacity)
+                && format_scaled_square_root(scale, radicand,
+                                             upper, upper_capacity);
+        }
+    }
+    {
+        char negative_b_text[64];
+        char radical_text[96];
+        if (!math_fraction_to_text(negative_b, negative_b_text,
+                                   sizeof(negative_b_text))
+                || !format_square_root(discriminant, radical_text,
+                                       sizeof(radical_text))) {
+            return 0;
+        }
+        return snprintf(lower, lower_capacity, "(%s-%s)/%s", negative_b_text,
+                        radical_text, denominator_text) >= 0
+            && strlen(lower) < lower_capacity
+            && snprintf(upper, upper_capacity, "(%s+%s)/%s", negative_b_text,
+                        radical_text, denominator_text) >= 0
+            && strlen(upper) < upper_capacity;
+    }
+}
+
 static int candidate_allowed(MathFraction candidate, const MathPoly *left_denominator,
                              const MathPoly *right_denominator) {
     MathFraction left_value = polynomial_evaluate_fraction(left_denominator, candidate);
@@ -2405,7 +2469,23 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 fraction_multiply(math_fraction(4, 1), fraction_multiply(
                     sqrt_poly.coefficient[2], sqrt_poly.coefficient[0])));
             char minimum_text[96];
-            snprintf(out->domain, sizeof(out->domain), "(-infinity,infinity)");
+            char lower_root[96];
+            char upper_root[96];
+            if (radical_discriminant.num > 0
+                    && format_positive_quadratic_roots(
+                        sqrt_poly.coefficient[2], sqrt_poly.coefficient[1],
+                        radical_discriminant, lower_root, sizeof(lower_root),
+                        upper_root, sizeof(upper_root))) {
+                snprintf(out->domain, sizeof(out->domain),
+                         "(-infinity,%s] U [%s,infinity)",
+                         lower_root, upper_root);
+            } else if (radical_discriminant.num > 0) {
+                snprintf(out->domain, sizeof(out->domain),
+                         "Exact domain not supported for this radical expression");
+            } else {
+                snprintf(out->domain, sizeof(out->domain),
+                         "(-infinity,infinity)");
+            }
             if (radical_discriminant.num < 0) {
                 MathFraction minimum = fraction_divide(
                     fraction_negate(radical_discriminant),
@@ -2543,6 +2623,56 @@ MathStatus math_analyze_function(const MathExpr *expression,
                 step_add(&out->steps,
                          "4. sqrt(a*x^2) is a scaled absolute value; split at x=0.");
                 intervals_handled = 1;
+            } else if (special_poly_ok && special_poly.degree == 2
+                    && special_poly.coefficient[2].num > 0) {
+                MathFraction radical_discriminant = fraction_subtract(
+                    fraction_multiply(special_poly.coefficient[1],
+                                      special_poly.coefficient[1]),
+                    fraction_multiply(math_fraction(4, 1), fraction_multiply(
+                        special_poly.coefficient[2],
+                        special_poly.coefficient[0])));
+                MathFraction vertex_x = fraction_divide(
+                    fraction_negate(special_poly.coefficient[1]),
+                    fraction_multiply(math_fraction(2, 1),
+                                      special_poly.coefficient[2]));
+                char vertex_text[64];
+                math_fraction_to_text(vertex_x, vertex_text, sizeof(vertex_text));
+                if (radical_discriminant.num <= 0) {
+                    snprintf(out->increasing, sizeof(out->increasing),
+                             "(%s,infinity)", vertex_text);
+                    snprintf(out->decreasing, sizeof(out->decreasing),
+                             "(-infinity,%s)", vertex_text);
+                    if (radical_discriminant.num < 0) {
+                        snprintf(out->concave_up, sizeof(out->concave_up),
+                                 "(-infinity,infinity)");
+                    } else {
+                        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+                    }
+                    snprintf(out->concave_down, sizeof(out->concave_down), "none");
+                    step_add(&out->steps,
+                             "4. Use the quadratic-radicand vertex and derivative sign.");
+                    intervals_handled = 1;
+                } else {
+                    char lower_root[96];
+                    char upper_root[96];
+                    if (format_positive_quadratic_roots(
+                            special_poly.coefficient[2],
+                            special_poly.coefficient[1], radical_discriminant,
+                            lower_root, sizeof(lower_root), upper_root,
+                            sizeof(upper_root))) {
+                        snprintf(out->increasing, sizeof(out->increasing),
+                                 "(%s,infinity)", upper_root);
+                        snprintf(out->decreasing, sizeof(out->decreasing),
+                                 "(-infinity,%s)", lower_root);
+                        snprintf(out->concave_up, sizeof(out->concave_up), "none");
+                        snprintf(out->concave_down, sizeof(out->concave_down),
+                                 "(-infinity,%s) U (%s,infinity)",
+                                 lower_root, upper_root);
+                        step_add(&out->steps,
+                                 "4. Restrict the derivative sign to the two radicand-domain branches.");
+                        intervals_handled = 1;
+                    }
+                }
             }
         }
 

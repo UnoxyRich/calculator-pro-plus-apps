@@ -110,6 +110,19 @@ static void test_function_analysis(void) {
     assert(math_analyze_function(&shifted_radical, &analysis) == MATH_OK);
     assert(strcmp(analysis.domain, "(-infinity,infinity)") == 0);
     assert(strcmp(analysis.range, "[1,infinity)") == 0);
+    assert(strcmp(analysis.increasing, "(0,infinity)") == 0);
+    assert(strcmp(analysis.decreasing, "(-infinity,0)") == 0);
+    assert(strcmp(analysis.concave_up, "(-infinity,infinity)") == 0);
+    {
+        MathExpr radical_domain_gap = parse_expression("sqrt(x^2-1)");
+        assert(math_analyze_function(&radical_domain_gap, &analysis) == MATH_OK);
+        assert(strcmp(analysis.domain, "(-infinity,-1] U [1,infinity)") == 0);
+        assert(strcmp(analysis.range, "[0,infinity)") == 0);
+        assert(strcmp(analysis.increasing, "(1,infinity)") == 0);
+        assert(strcmp(analysis.decreasing, "(-infinity,-1)") == 0);
+        assert(strcmp(analysis.concave_down,
+                      "(-infinity,-1) U (1,infinity)") == 0);
+    }
     assert(math_analyze_function(&quadratic, &analysis) == MATH_OK);
     assert(strcmp(analysis.increasing, "(2,infinity)") == 0);
     assert(strcmp(analysis.decreasing, "(-infinity,2)") == 0);
