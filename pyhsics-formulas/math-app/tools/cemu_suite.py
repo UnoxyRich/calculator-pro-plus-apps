@@ -37,6 +37,77 @@ def drain_stderr(stream) -> None:
         sys.stderr.write("[CEmu] " + line)
 
 
+def key_sequence(keys: list[str]) -> str:
+    return "keys|" + ",".join(keys)
+
+
+def submitted(keys: list[str]) -> str:
+    return key_sequence([*keys, "enter"])
+
+
+def x_variable() -> list[str]:
+    return ["alpha", "xton"]
+
+
+def worksheet_smoke_sequence() -> list[str]:
+    x = x_variable()
+    x_squared = [*x, "pow", "2"]
+    quadratic_left = [*x_squared, "add", "2", *x, "add", "3"]
+    transform_input = [*x_squared, "sub", "3", *x, "sub", "4"]
+    branch_one = ["lpar", *x, "add", "1", "rpar", "pow", "2"]
+    branch_two = ["1", "sub", *x]
+    branch_three = ["neg", "3", *x, "pow", "2", "add", "1", "8", *x,
+                    "sub", "2", "5"]
+    sequence = ["action|launch"]
+
+    # Automatic normal function input.
+    sequence += [submitted(["0"]), submitted([*x_squared, "add", "1"]),
+                 "key|clear"]
+    # Dedicated equation solver: separate sides avoid the non-keyboard '=' token.
+    sequence += ["key|down", "key|enter", submitted(quadratic_left),
+                 submitted(["0"]), "key|clear"]
+    # Function analysis.
+    sequence += ["key|down", "key|enter", submitted([*x, "pow", "3"]),
+                 "key|clear"]
+    # Translation/dilation/vertex/intercept screen.
+    sequence += ["key|down", "key|enter", submitted(transform_input),
+                 submitted(["neg", "4"]), submitted(["4"]), submitted(["1"]),
+                 submitted(["1"]), submitted(["0"]), submitted(["0"]),
+                 "key|clear"]
+    # Guided worksheet piecewise input.
+    sequence += ["key|down", "key|enter", submitted(["3"]),
+                 submitted(branch_one), submitted(["neg", "2"]), submitted(["0"]),
+                 submitted(["0"]), submitted(["0"]), submitted(branch_two),
+                 submitted(["0"]), submitted(["2"]), submitted(["1"]),
+                 submitted(["1"]), submitted(branch_three), submitted(["2"]),
+                 submitted(["4"]), submitted(["0"]), submitted(["0"]),
+                 "key|clear"]
+    # Automatic piecewise toggle uses the same guided editor.
+    sequence += ["key|up", "key|up", "key|up", "key|up", "key|enter",
+                 submitted(["1"]), submitted(x), submitted(["neg", "1"]),
+                 submitted(["1"]), submitted(["1"]), submitted(["1"]),
+                 "key|clear"]
+    # Enter the More tools submenu.
+    sequence += ["key|down", "key|down", "key|down", "key|down", "key|down",
+                 "key|enter"]
+    # Two-function composition.
+    sequence += [submitted([*x_squared, "sub", "1"]), submitted([*x, "add", "1"]),
+                 "key|clear", "key|down", "key|enter"]
+    # Three-function composition.
+    sequence += [submitted([*x_squared, "sub", "1"]), submitted([*x, "add", "1"]),
+                 submitted([*x, "sub", "2"]), "key|clear", "key|down",
+                 "key|enter"]
+    # Average rate of change.
+    sequence += [submitted(["0"]), submitted(["1", "sub", *x]), submitted(["0"]),
+                 submitted(["2"]), "key|clear", "key|down", "key|enter"]
+    # Three-point quadratic fit, then visit About and exit.
+    sequence += [submitted(["0"]), submitted(["1", "4"]), submitted(["3", "5"]),
+                 submitted(["5", "7"]), submitted(["4", "5"]), submitted(["4", "6"]),
+                 "key|clear", "key|down", "key|enter", "key|down", "key|enter"]
+    sequence += ["key|clear", "key|clear"]
+    return sequence
+
+
 class HeadlessSession:
     def __init__(self, executable: Path, firmware_kind: str, firmware: Path):
         self.process = subprocess.Popen(
@@ -76,32 +147,9 @@ def run_autotester(autotester: Path, firmware: Path, output: Path) -> None:
         "rom": str(firmware),
         "transfer_files": [str(path) for path in files],
         "target": {"name": "MATHAPP", "isASM": True},
-        "delay_after_key": 100,
-        "delay_after_step": 120,
-        "sequence": [
-            "action|launch",
-            # Open and cancel each interactive menu entry.  This verifies the
-            # native screen loop and every input form without inventing math
-            # answers when the test is running against a fresh ROM.
-            "key|enter",
-            "key|clear",
-            "key|down",
-            "key|enter",
-            "key|clear",
-            "key|down",
-            "key|enter",
-            "key|clear",
-            "key|down",
-            "key|enter",
-            "key|clear",
-            "key|down",
-            "key|enter",
-            "key|clear",
-            "key|down",
-            "key|enter",
-            "key|clear",
-            "key|clear",
-        ],
+        "delay_after_key": 140,
+        "delay_after_step": 140,
+        "sequence": worksheet_smoke_sequence(),
         "hashes": {},
     }
     config_path = output / "launch_config.json"

@@ -6,8 +6,8 @@ implicit multiplication, exact fractions and terminating decimals, powers,
 
 The current vertical slice includes:
 
-- one automatic input screen that routes equations, functions, and `piecewise(...)`
-  input to the correct tool;
+- one automatic input screen that routes equations and functions to the correct
+  tool, plus a guided piecewise editor for calculator-keyboard entry;
 - automatic linear, quadratic, and rational-polynomial equation solving;
 - exact rational and simplified radical answers, including complex roots;
 - recorded solving steps and original-denominator checks;
@@ -103,7 +103,7 @@ limitation instead of returning a decimal guess.
 
 ## Piecewise input
 
-The native menu accepts up to four ordered branches in either of these forms:
+The host parser accepts up to four ordered branches in either of these forms:
 
 ```text
 piecewise(x|(-2,0);-x|(0,2))
@@ -115,3 +115,14 @@ a closed endpoint. Interval endpoints may also be written explicitly, for
 example `(-2,0]` or `[0,4)`. Branches must not overlap. The app combines
 branch domains, exact polynomial ranges, slope intervals, concavity, and
 parity when the reflected branches can be proved symbolically.
+
+On the physical calculator, choose `Piecewise analyze` and enter each branch
+through prompts for the expression, exact lower and upper bounds, and whether
+each endpoint is closed (`0` or `1`). The `Average rate` tool has the same
+piecewise toggle, so it never requires typing punctuation that is not present
+on the TI-84 keyboard.
+
+The native `Solve equation` screen also uses separate left-side and right-side
+prompts, so equation solving does not depend on finding the `=` token through
+the TI-84 test menu. The automatic text parser still accepts the compact
+`left=right` form for host-side and saved-input workflows.

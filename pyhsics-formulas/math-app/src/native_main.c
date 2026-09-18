@@ -166,6 +166,61 @@ static int read_toggle(const char *prompt, uint8_t *out) {
     return 1;
 }
 
+static int read_piecewise_guided(MathPiecewise *out, char *error,
+                                 size_t error_capacity) {
+    MathFraction branch_count;
+    uint8_t index;
+
+    memset(out, 0, sizeof(*out));
+    if (!read_fraction("Branches (1-4)=", &branch_count)
+            || branch_count.den != 1
+            || branch_count.num < 1
+            || branch_count.num > MATH_PIECEWISE_BRANCHES) {
+        snprintf(error, error_capacity, "Choose 1, 2, 3, or 4 branches.");
+        return 0;
+    }
+    out->count = (uint8_t) branch_count.num;
+    for (index = 0; index < out->count; index++) {
+        MathPiecewiseBranch *branch = &out->branch[index];
+        char prompt[24];
+        char expression_text[MATH_OUTPUT_WIDTH];
+        MathStatus status;
+
+        snprintf(prompt, sizeof(prompt), "Expr %u=", (unsigned) (index + 1));
+        if (!read_expression(prompt, expression_text, sizeof(expression_text))) {
+            snprintf(error, error_capacity, "Each branch needs an expression.");
+            return 0;
+        }
+        status = math_parse_expression(expression_text, &branch->expression,
+                                       error, error_capacity);
+        if (status != MATH_OK) {
+            return 0;
+        }
+        snprintf(prompt, sizeof(prompt), "Lower %u=", (unsigned) (index + 1));
+        if (!read_fraction(prompt, &branch->lower)) {
+            snprintf(error, error_capacity, "Bounds must be exact fractions.");
+            return 0;
+        }
+        snprintf(prompt, sizeof(prompt), "Upper %u=", (unsigned) (index + 1));
+        if (!read_fraction(prompt, &branch->upper)
+                || math_fraction_compare(branch->lower, branch->upper) >= 0) {
+            snprintf(error, error_capacity, "Each lower bound must be below its upper bound.");
+            return 0;
+        }
+        snprintf(prompt, sizeof(prompt), "Lower closed? 0/1");
+        if (!read_toggle(prompt, &branch->lower_closed)) {
+            snprintf(error, error_capacity, "Endpoint choices must be 0 or 1.");
+            return 0;
+        }
+        snprintf(prompt, sizeof(prompt), "Upper closed? 0/1");
+        if (!read_toggle(prompt, &branch->upper_closed)) {
+            snprintf(error, error_capacity, "Endpoint choices must be 0 or 1.");
+            return 0;
+        }
+    }
+    return 1;
+}
+
 static void show_parse_error(const char *error) {
     os_ClrHomeFull();
     os_PutStrFull("Input error");
@@ -182,6 +237,30 @@ static void solve_text(const char *input) {
     MathStatus status;
 
     status = math_parse_equation(input, &equation, error, sizeof(error));
+    if (status != MATH_OK) {
+        show_parse_error(error);
+        return;
+    }
+    status = math_solve_equation(&equation, &result);
+    if (status == MATH_ERR_INPUT || result.status == MATH_ERR_LIMIT) {
+        show_parse_error("The exact result exceeded the app storage limit.");
+        return;
+    }
+    show_solution(&result);
+}
+
+static void solve_sides(const char *left_input, const char *right_input) {
+    char error[MATH_ERROR_WIDTH];
+    MathEquation equation;
+    MathSolveResult result;
+    MathStatus status;
+
+    status = math_parse_expression(left_input, &equation.left,
+                                   error, sizeof(error));
+    if (status == MATH_OK) {
+        status = math_parse_expression(right_input, &equation.right,
+                                       error, sizeof(error));
+    }
     if (status != MATH_OK) {
         show_parse_error(error);
         return;
@@ -214,10 +293,13 @@ static void analyze_text(const char *input) {
 }
 
 static void run_solver(void) {
-    char input[MATH_OUTPUT_WIDTH];
+    char left_input[MATH_OUTPUT_WIDTH];
+    char right_input[MATH_OUTPUT_WIDTH];
     os_ClrHomeFull();
-    if (read_expression("Equation: ", input, sizeof(input))) {
-        solve_text(input);
+    if (read_expression("Left side: ", left_input, sizeof(left_input))
+            && read_expression("Right side: ", right_input,
+                               sizeof(right_input))) {
+        solve_sides(left_input, right_input);
     }
 }
 
@@ -277,20 +359,15 @@ static void run_transform(void) {
 }
 
 static void run_piecewise_analysis(void) {
-    char input[MATH_OUTPUT_WIDTH];
     char error[MATH_ERROR_WIDTH];
     MathPiecewise piecewise;
     MathAnalysis result;
     MathStatus status;
 
     os_ClrHomeFull();
-    os_PutStrFull("Syntax: piecewise(expr|[a,b); more branches");
+    os_PutStrFull("Guided piecewise input");
     os_NewLine();
-    if (!read_expression("Input: ", input, sizeof(input))) {
-        return;
-    }
-    status = math_parse_piecewise(input, &piecewise, error, sizeof(error));
-    if (status != MATH_OK) {
+    if (!read_piecewise_guided(&piecewise, error, sizeof(error))) {
         show_parse_error(error);
         return;
     }
@@ -350,21 +427,30 @@ static void run_average_rate(void) {
     MathAverageRateResult result;
     MathFraction first_x;
     MathFraction second_x;
+    uint8_t piecewise_mode;
     MathStatus status;
 
     os_ClrHomeFull();
-    if (!read_expression("f(x)=", input, sizeof(input))
-            || !read_fraction("x1=", &first_x)
+    if (!read_toggle("Piecewise? 0/1", &piecewise_mode)) {
+        show_parse_error("Use 0/1 and exact values such as -2, 0, or 1/2.");
+        return;
+    }
+    if (piecewise_mode != 0) {
+        if (!read_piecewise_guided(&piecewise, error, sizeof(error))) {
+            show_parse_error(error);
+            return;
+        }
+    } else if (!read_expression("f(x)=", input, sizeof(input))) {
+        return;
+    }
+    if (!read_fraction("x1=", &first_x)
             || !read_fraction("x2=", &second_x)) {
         show_parse_error("Use exact x-values such as -2, 0, or 1/2.");
         return;
     }
-    if (math_classify_input(input) == MATH_INPUT_PIECEWISE) {
-        status = math_parse_piecewise(input, &piecewise, error, sizeof(error));
-        if (status == MATH_OK) {
-            status = math_average_rate_piecewise(&piecewise, first_x, second_x,
-                                                 &result);
-        }
+    if (piecewise_mode != 0) {
+        status = math_average_rate_piecewise(&piecewise, first_x, second_x,
+                                             &result);
     } else {
         status = math_parse_expression(input, &expression, error, sizeof(error));
         if (status == MATH_OK) {
@@ -516,9 +602,27 @@ static void run_automatic(void) {
     MathPiecewise piecewise;
     MathAnalysis analysis;
     char error[MATH_ERROR_WIDTH];
+    uint8_t piecewise_mode;
     MathStatus status;
 
     os_ClrHomeFull();
+    if (!read_toggle("Piecewise? 0/1", &piecewise_mode)) {
+        show_parse_error("Choose 0 for normal input or 1 for guided piecewise input.");
+        return;
+    }
+    if (piecewise_mode != 0) {
+        if (!read_piecewise_guided(&piecewise, error, sizeof(error))) {
+            show_parse_error(error);
+            return;
+        }
+        status = math_analyze_piecewise(&piecewise, &analysis);
+        if (status != MATH_OK) {
+            show_parse_error("The piecewise function could not be analyzed.");
+            return;
+        }
+        show_analysis(&analysis);
+        return;
+    }
     if (!read_expression("Input: ", input, sizeof(input))) {
         return;
     }
