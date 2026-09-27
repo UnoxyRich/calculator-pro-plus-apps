@@ -104,7 +104,8 @@ public final class TiConnectSend {
                         + System.currentTimeMillis() + ".8xp");
                 byte[] current = receive(api, connection, existing, backup);
                 System.out.println("Existing PHYS1 saved to " + backup);
-                if (Arrays.equals(expected.getData(), current)) {
+                if (Arrays.equals(expected.getData(), current)
+                        && "send".equals(args[0])) {
                     System.out.println("ALREADY_INSTALLED: exact program data matches.");
                     return;
                 }
