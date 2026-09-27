@@ -16,6 +16,7 @@ TextColor(12)
 Text(51,38,"KINEMATICS")
 Text(74,38,"FREE FALL")
 Text(97,38,"PROJECTILES")
+Text(120,38,"DYNAMICS")
 TextColor(10)
 If C=1
 Text(51,17,">")
@@ -23,6 +24,8 @@ If C=2
 Text(74,17,">")
 If C=3
 Text(97,17,">")
+If C=4
+Text(120,17,">")
 TextColor(23)
 Text(139,8,"UP/DOWN SELECT  ENTER OPEN")
 End
@@ -33,8 +36,10 @@ If N≤9
 Text(23,8,"KINEMATICS")
 If N≥10 and N≤14
 Text(23,8,"FREE FALL")
-If N≥15
+If N≥15 and N≤22
 Text(23,8,"PROJECTILE MOTION")
+If N≥23
+Text(23,8,"DYNAMICS")
 Text(141,8,"DOWN NEXT UP BACK LEFT MENU")
 End
 TextColor(10)
@@ -322,6 +327,132 @@ Text(62,136,"gt")
 Text(54,153,"2")
 Text(111,8,"For time, keep positive root")
 End
+If N=23
+Then
+Text(38,8,"WEIGHT")
+TextColor(12)
+Text(62,38,"W = mg")
+Text(96,8,"Gravity force on mass m")
+Text(116,8,"g = 9.8 m/s")
+Text(110,96,"2")
+End
+If N=24
+Then
+Text(38,8,"NEWTON 2ND LAW")
+TextColor(12)
+Text(62,20,"SUM Fy = m ay")
+Text(91,20,"Rest: SUM Fy = 0")
+Text(119,8,"Choose a positive direction")
+End
+If N=25
+Then
+Text(38,8,"STACKED BOXES")
+TextColor(12)
+Text(56,20,"N")
+Text(63,28,"top")
+Text(56,58,"= m")
+Text(63,84,"top")
+Text(56,111,"g")
+Text(84,12,"Ntable = (mb+mt)g")
+Text(113,8,"Both boxes are at rest")
+End
+If N=26
+Then
+Text(38,8,"STOPPING ACCELERATION")
+TextColor(12)
+Text(61,24,"a = -v")
+Text(68,70,"0")
+Text(53,70,"2")
+For(X,45,91)
+Pxl-On(79,X,17)
+End
+Text(84,61,"2d")
+Text(112,8,"Down positive; stop after d")
+End
+If N=27
+Then
+Text(38,8,"FORCE FROM LEGS")
+TextColor(12)
+Text(62,24,"Fleg = m(g-a)")
+Text(96,8,"Down positive for torso")
+Text(118,8,"Leg force points upward")
+End
+If N=28
+Then
+Text(38,8,"AIR RESISTANCE")
+TextColor(12)
+Text(56,12,"Fair = m(g-a)")
+Text(86,12,"a =")
+Text(86,52,"v")
+Text(78,59,"2")
+For(X,49,94)
+Pxl-On(104,X,17)
+End
+Text(109,67,"2h")
+Text(128,8,"From rest; down positive")
+End
+If N=29
+Then
+Text(38,8,"ROPE TENSION")
+TextColor(12)
+Text(62,20,"T - mg = ma")
+Text(92,20,"T = m(g+a)")
+Text(120,8,"For upward acceleration a")
+End
+If N=30
+Then
+Text(38,8,"AFTER ROPE CUT")
+TextColor(12)
+Text(59,13,"dsep = L +")
+Text(53,103,"1")
+For(X,99,118)
+Pxl-On(69,X,17)
+End
+Text(71,104,"2")
+Text(59,128,"(ah+g)t")
+Text(51,193,"2")
+Text(110,8,"Same release velocity")
+Text(126,8,"L=5m, t=2s gives 35m gap")
+End
+If N=31
+Then
+Text(38,8,"ELEVATOR SCALE")
+TextColor(12)
+Text(56,12,"R - mg = ma")
+Text(90,42,"a =")
+Text(82,80,"R-mg")
+For(X,79,121)
+Pxl-On(105,X,17)
+End
+Text(110,99,"m")
+Text(130,8,"R is scale force; up positive")
+End
+If N=32
+Then
+Text(38,8,"UPDATE EACH INTERVAL")
+TextColor(12)
+Text(57,16,"vf = vi + a Δt")
+Text(82,10,"Δx = vi Δt +")
+Text(72,114,"1")
+For(X,109,126)
+Pxl-On(88,X,17)
+End
+Text(92,115,"2")
+Text(82,132,"a(Δt)")
+Text(74,176,"2")
+Text(116,8,"Add dx to prior position")
+End
+If N=33
+Then
+Text(38,8,"ELEVATOR ANSWERS")
+TextColor(12)
+Text(56,8,"t end: 5 10 15 20s")
+Text(80,8,"a:0,5,0,-5m/s")
+Text(74,112,"2")
+Text(104,8,"v end:0,25,25,0m/s")
+Text(98,152,"2")
+Text(128,8,"x end:0 62.5 187.5 250m")
+End
 0→K
 Repeat K≠0
 getKey→K
@@ -337,12 +468,12 @@ If K=25
 Then
 C-1→C
 If C=0
-3→C
+4→C
 End
 If K=34
 Then
 C+1→C
-If C=4
+If C=5
 1→C
 End
 If K=105
@@ -353,6 +484,8 @@ If C=2
 10→N
 If C=3
 15→N
+If C=4
+23→N
 End
 End
 If N>0
@@ -362,13 +495,13 @@ If K=24
 If K=34 or K=26 or K=105
 Then
 N+1→N
-If N=10 or N=15 or N=23
+If N=10 or N=15 or N=23 or N=34
 0→N
 End
 If K=25
 Then
 N-1→N
-If N=0 or N=9 or N=14
+If N=0 or N=9 or N=14 or N=22
 0→N
 End
 End

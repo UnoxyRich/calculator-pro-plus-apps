@@ -112,9 +112,7 @@ public final class TiConnectSend {
                 if (!"replace".equals(args[0])) {
                     fail("Different PHYS1 already exists. Use replace after reviewing backup.");
                 }
-                if (existing.isVarFlagArchive()) {
-                    fail("Existing PHYS1 is archived; refusing to change flash memory.");
-                }
+                expected.setVarFlagArchive(existing.isVarFlagArchive());
                 System.out.println("Replacing only PHYS1; backup completed first.");
             }
 
@@ -129,6 +127,9 @@ public final class TiConnectSend {
                 Thread.sleep(500L);
             }
             if (installed == null) fail("Transfer returned success but PHYS1 is absent.");
+            if (installed.isVarFlagArchive() != expected.isVarFlagArchive()) {
+                fail("PHYS1 storage status changed during transfer.");
+            }
             Path readback = outputDir.resolve("PHYS1-readback-"
                     + System.currentTimeMillis() + ".8xp");
             byte[] actual = receive(api, connection, installed, readback);

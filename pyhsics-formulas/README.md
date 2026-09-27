@@ -3,8 +3,9 @@
 PHYS1 is one native TI-BASIC program for TI-84 Plus CE. It requires no launcher,
 assembly shell, jailbreak, AppVar, or separate dependency. It draws fraction
 bars and positions exponents and subscripts on the calculator's graph display.
-The 22 formula pages cover kinematics, free fall, and projectile motion from
-the attached notes; see [docs/formulas.md](docs/formulas.md).
+The 33 formula pages cover kinematics, free fall, projectile motion, and
+dynamics from the attached notes and exercise answers; see
+[docs/formulas.md](docs/formulas.md).
 
 On the calculator, open **PRGM → PHYS1**. It is a program, so it appears in
 PRGM, not APPS. Use up/down to choose a topic and ENTER to open it. In a topic,
@@ -30,11 +31,13 @@ This build is a TI-BASIC program. The initial build reached the topic menu,
 but opening a formula page produced `ERR:DOMAIN`. TI's Full-mode `Text(` limit
 is row 148; the page footer had used row 154. The footer has been corrected,
 other labels shortened, and the builder now rejects drawing calls outside
-the Full-mode coordinate limits. The corrected `PHYS1.8xp` was transferred
-over USB after backing up the previous copy. A file read back from the device
-matched the corrected program data exactly. The corrected program was **not
-executed** on the calculator, so its runtime behavior still needs a manual
-check by the owner.
+the Full-mode coordinate limits. The 33-page revision, including the dynamics
+expressions from the additional exercise answers, was transferred over USB
+after backing up the previous PHYS1. The calculator had PHYS1 archived; the
+replacement preserved that storage status. The transfer tool found PHYS1 on
+the device and its exact program data matched the built file on read-back.
+The program was **not executed or runtime-tested**, so a launch and page
+navigation have not been verified.
 
 An attempted USB deletion of the previous `PHYS1L` launcher timed out, and the
 user reported a calculator crash and RAM reset immediately afterward. Earlier
@@ -47,6 +50,7 @@ was not a full RAM backup.
 
 `tools/TiConnectSend.java` sends only PHYS1. Its `send` mode refuses to
 overwrite a different program; its explicit `replace` mode backs up PHYS1
-before overwriting it and verifies the transfer by reading it back. It cannot
-delete, execute, or press calculator keys. It requires the TI Connect CE Java
-runtime and JAR; it does not launch the TI Connect CE graphical interface.
+before overwriting it, preserves its archived/unarchived status, and verifies
+the transfer by reading it back. It cannot delete, execute, or press calculator
+keys. It requires the TI Connect CE Java runtime and JAR; it does not launch
+the TI Connect CE graphical interface.
